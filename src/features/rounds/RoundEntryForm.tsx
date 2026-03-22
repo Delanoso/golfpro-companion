@@ -1,14 +1,25 @@
-import { useMemo, useState } from "react";
-import type { RoundEntry, WedgeShot } from "../../types/app";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { DistanceUnit, RoundEntry, WedgeShot } from "../../types/app";
 import { clamp, createId, todayIsoDate } from "../../utils/helpers";
+import {
+  displayDistanceToYards,
+  distanceUnitLabel,
+  yardsToDisplayDistance,
+} from "../../utils/units";
 
 type RoundEntryFormProps = {
+  distanceUnit: DistanceUnit;
   rounds: RoundEntry[];
   onAddRound: (round: RoundEntry) => void;
   onDeleteRound: (id: string) => void;
 };
 
-export function RoundEntryForm({ rounds, onAddRound, onDeleteRound }: RoundEntryFormProps) {
+export function RoundEntryForm({
+  distanceUnit,
+  rounds,
+  onAddRound,
+  onDeleteRound,
+}: RoundEntryFormProps) {
   const [date, setDate] = useState(todayIsoDate());
   const [course, setCourse] = useState("Sunward Park");
   const [holes, setHoles] = useState<9 | 18>(18);
@@ -19,9 +30,19 @@ export function RoundEntryForm({ rounds, onAddRound, onDeleteRound }: RoundEntry
   const [threePutts, setThreePutts] = useState(2);
   const [notes, setNotes] = useState("");
 
-  const [wedgeDistance, setWedgeDistance] = useState(80);
+  const [wedgeDistance, setWedgeDistance] = useState(
+    distanceUnit === "meters" ? 73 : 80,
+  );
   const [wedgeProximity, setWedgeProximity] = useState(22);
   const [wedgeShots, setWedgeShots] = useState<WedgeShot[]>([]);
+  const previousUnit = useRef<DistanceUnit>(distanceUnit);
+
+  useEffect(() => {
+    if (previousUnit.current === distanceUnit) return;
+    const distanceInYards = displayDistanceToYards(wedgeDistance, previousUnit.current);
+    setWedgeDistance(yardsToDisplayDistance(distanceInYards, distanceUnit));
+    previousUnit.current = distanceUnit;
+  }, [distanceUnit, wedgeDistance]);
 
   const validationError = useMemo(() => {
     if (onePutts + threePutts > holes) return "1-putts + 3-putts cannot exceed total holes.";
@@ -34,7 +55,7 @@ export function RoundEntryForm({ rounds, onAddRound, onDeleteRound }: RoundEntry
       ...current,
       {
         id: createId(),
-        distanceYards: clamp(wedgeDistance, 1, 220),
+        distanceYards: clamp(displayDistanceToYards(wedgeDistance, distanceUnit), 1, 220),
         proximityFeet: clamp(wedgeProximity, 0, 200),
       },
     ]);
@@ -67,38 +88,38 @@ export function RoundEntryForm({ rounds, onAddRound, onDeleteRound }: RoundEntry
       <form onSubmit={submitRound} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <h3 className="text-base font-semibold text-slate-900">Round Entry</h3>
 
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <label className="text-sm">
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="min-w-0 text-sm">
             <span className="text-slate-600">Date</span>
             <input
               type="date"
               value={date}
               onChange={(event) => setDate(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
-          <label className="text-sm">
+          <label className="min-w-0 text-sm">
             <span className="text-slate-600">Course</span>
             <input
               value={course}
               onChange={(event) => setCourse(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
               placeholder="Course name"
             />
           </label>
 
-          <label className="text-sm">
+          <label className="min-w-0 text-sm">
             <span className="text-slate-600">Holes</span>
             <select
               value={holes}
               onChange={(event) => setHoles(Number(event.target.value) as 9 | 18)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             >
               <option value={9}>9</option>
               <option value={18}>18</option>
             </select>
           </label>
-          <label className="text-sm">
+          <label className="min-w-0 text-sm">
             <span className="text-slate-600">Par</span>
             <input
               type="number"
@@ -106,11 +127,11 @@ export function RoundEntryForm({ rounds, onAddRound, onDeleteRound }: RoundEntry
               min={27}
               max={90}
               onChange={(event) => setPar(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
 
-          <label className="text-sm">
+          <label className="min-w-0 text-sm">
             <span className="text-slate-600">Total Score</span>
             <input
               type="number"
@@ -118,10 +139,10 @@ export function RoundEntryForm({ rounds, onAddRound, onDeleteRound }: RoundEntry
               min={20}
               max={200}
               onChange={(event) => setTotalScore(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
-          <label className="text-sm">
+          <label className="min-w-0 text-sm">
             <span className="text-slate-600">Total Putts</span>
             <input
               type="number"
@@ -129,11 +150,11 @@ export function RoundEntryForm({ rounds, onAddRound, onDeleteRound }: RoundEntry
               min={0}
               max={100}
               onChange={(event) => setPutts(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
 
-          <label className="text-sm">
+          <label className="min-w-0 text-sm">
             <span className="text-slate-600">1-Putt Holes</span>
             <input
               type="number"
@@ -141,10 +162,10 @@ export function RoundEntryForm({ rounds, onAddRound, onDeleteRound }: RoundEntry
               min={0}
               max={holes}
               onChange={(event) => setOnePutts(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
-          <label className="text-sm">
+          <label className="min-w-0 text-sm">
             <span className="text-slate-600">3-Putt Holes</span>
             <input
               type="number"
@@ -152,7 +173,7 @@ export function RoundEntryForm({ rounds, onAddRound, onDeleteRound }: RoundEntry
               min={0}
               max={holes}
               onChange={(event) => setThreePutts(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
         </div>
@@ -170,14 +191,14 @@ export function RoundEntryForm({ rounds, onAddRound, onDeleteRound }: RoundEntry
 
         <div className="mt-4 rounded-xl bg-slate-50 p-3">
           <p className="text-sm font-semibold text-slate-800">Wedge Shot Log (for analytics)</p>
-          <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <input
               type="number"
               min={1}
               value={wedgeDistance}
               onChange={(event) => setWedgeDistance(Number(event.target.value))}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              placeholder="Distance (yd)"
+              placeholder={`Distance (${distanceUnitLabel(distanceUnit)})`}
             />
             <input
               type="number"
@@ -200,7 +221,8 @@ export function RoundEntryForm({ rounds, onAddRound, onDeleteRound }: RoundEntry
             <ul className="mt-2 space-y-1 text-xs text-slate-700">
               {wedgeShots.map((shot) => (
                 <li key={shot.id}>
-                  {shot.distanceYards} yd {"->"} {shot.proximityFeet} ft
+                  {yardsToDisplayDistance(shot.distanceYards, distanceUnit).toFixed(1)}{" "}
+                  {distanceUnitLabel(distanceUnit)} {"->"} {shot.proximityFeet} ft
                 </li>
               ))}
             </ul>

@@ -1,5 +1,5 @@
 import { StatCard } from "../../components/StatCard";
-import type { AppData } from "../../types/app";
+import type { AppData, DistanceUnit } from "../../types/app";
 import {
   getBiggestLeak,
   getBettingNetByPlayer,
@@ -9,14 +9,16 @@ import {
   getScoreSummary,
   getWedgeBuckets,
 } from "../../utils/analytics";
+import { formatDistanceFromYards, formatRangeFromYards } from "../../utils/units";
 
 type AnalyticsDashboardProps = {
   data: AppData;
+  distanceUnit: DistanceUnit;
 };
 
 const formatSigned = (value: number) => (value > 0 ? `+${value.toFixed(1)}` : value.toFixed(1));
 
-export function AnalyticsDashboard({ data }: AnalyticsDashboardProps) {
+export function AnalyticsDashboard({ data, distanceUnit }: AnalyticsDashboardProps) {
   const scoreSummary = getScoreSummary(data.rounds);
   const puttingSummary = getPuttingSummary(data.rounds);
   const wedgeBuckets = getWedgeBuckets(data.rounds);
@@ -51,9 +53,14 @@ export function AnalyticsDashboard({ data }: AnalyticsDashboardProps) {
         <h3 className="text-base font-semibold text-slate-900">Wedge Distance Analytics</h3>
         <div className="mt-3 space-y-2">
           {wedgeBuckets.map((bucket) => (
-            <div key={bucket.label} className="rounded-xl bg-slate-50 p-3">
+            <div
+              key={`${bucket.minYards}-${bucket.maxYards}`}
+              className="rounded-xl bg-slate-50 p-3"
+            >
               <div className="flex items-center justify-between text-sm">
-                <p className="font-semibold text-slate-800">{bucket.label}</p>
+                <p className="font-semibold text-slate-800">
+                  {formatRangeFromYards(bucket.minYards, bucket.maxYards, distanceUnit)}
+                </p>
                 <p className="text-slate-500">{bucket.samples} shots</p>
               </div>
               <p className="mt-1 text-sm text-slate-700">
@@ -103,9 +110,9 @@ export function AnalyticsDashboard({ data }: AnalyticsDashboardProps) {
                 {clubStats.map((club) => (
                   <tr key={club.club} className="border-t border-slate-100 text-slate-700">
                     <td className="py-2 pr-3 font-semibold">{club.club}</td>
-                    <td className="py-2 pr-3">{club.average.toFixed(1)} yd</td>
-                    <td className="py-2 pr-3">{club.min.toFixed(0)} yd</td>
-                    <td className="py-2 pr-3">{club.max.toFixed(0)} yd</td>
+                    <td className="py-2 pr-3">{formatDistanceFromYards(club.average, distanceUnit, 1)}</td>
+                    <td className="py-2 pr-3">{formatDistanceFromYards(club.min, distanceUnit, 0)}</td>
+                    <td className="py-2 pr-3">{formatDistanceFromYards(club.max, distanceUnit, 0)}</td>
                     <td className="py-2 pr-3">{club.samples}</td>
                   </tr>
                 ))}

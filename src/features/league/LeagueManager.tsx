@@ -98,8 +98,8 @@ export function LeagueManager({ data, onUpdateSettings, onAddRound, onDeleteRoun
     <section className="space-y-4">
       <article className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <h3 className="text-base font-semibold text-slate-900">League Settings</h3>
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <label className="text-sm">
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="min-w-0 text-sm">
             <span className="text-slate-600">Winner points</span>
             <input
               type="number"
@@ -110,10 +110,10 @@ export function LeagueManager({ data, onUpdateSettings, onAddRound, onDeleteRoun
                   winnerPoints: Number(event.target.value),
                 })
               }
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
-          <label className="text-sm">
+          <label className="min-w-0 text-sm">
             <span className="text-slate-600">Participation points</span>
             <input
               type="number"
@@ -124,7 +124,7 @@ export function LeagueManager({ data, onUpdateSettings, onAddRound, onDeleteRoun
                   participationPoints: Number(event.target.value),
                 })
               }
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
         </div>
@@ -165,31 +165,31 @@ export function LeagueManager({ data, onUpdateSettings, onAddRound, onDeleteRoun
 
       <form onSubmit={submitLeagueRound} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <h3 className="text-base font-semibold text-slate-900">New League Round</h3>
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <label className="text-sm">
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="min-w-0 text-sm">
             <span className="text-slate-600">Date</span>
             <input
               type="date"
               value={date}
               onChange={(event) => setDate(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
-          <label className="text-sm">
+          <label className="min-w-0 text-sm">
             <span className="text-slate-600">Course</span>
             <input
               value={course}
               onChange={(event) => setCourse(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
-          <label className="text-sm">
+          <label className="min-w-0 text-sm">
             <span className="text-slate-600">Par</span>
             <input
               type="number"
               value={par}
               onChange={(event) => setPar(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
         </div>

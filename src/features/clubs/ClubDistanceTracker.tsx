@@ -1,26 +1,42 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { clubOptions } from "../../data/defaultData";
-import type { ClubName, ClubShot } from "../../types/app";
+import type { ClubName, ClubShot, DistanceUnit } from "../../types/app";
 import { getClubDistanceStats } from "../../utils/analytics";
 import { createId, todayIsoDate } from "../../utils/helpers";
+import {
+  displayDistanceToYards,
+  distanceUnitLabel,
+  formatDistanceFromYards,
+  yardsToDisplayDistance,
+} from "../../utils/units";
 
 type ClubDistanceTrackerProps = {
+  distanceUnit: DistanceUnit;
   clubShots: ClubShot[];
   onAddShot: (shot: ClubShot) => void;
   onDeleteShot: (id: string) => void;
 };
 
 export function ClubDistanceTracker({
+  distanceUnit,
   clubShots,
   onAddShot,
   onDeleteShot,
 }: ClubDistanceTrackerProps) {
   const [date, setDate] = useState(todayIsoDate());
   const [club, setClub] = useState<ClubName>("7I");
-  const [distanceYards, setDistanceYards] = useState(150);
+  const [distanceInput, setDistanceInput] = useState(distanceUnit === "meters" ? 137 : 150);
   const [shotShape, setShotShape] = useState<ClubShot["shotShape"]>("straight");
+  const previousUnit = useRef<DistanceUnit>(distanceUnit);
 
   const stats = getClubDistanceStats(clubShots);
+
+  useEffect(() => {
+    if (previousUnit.current === distanceUnit) return;
+    const valueInYards = displayDistanceToYards(distanceInput, previousUnit.current);
+    setDistanceInput(yardsToDisplayDistance(valueInYards, distanceUnit));
+    previousUnit.current = distanceUnit;
+  }, [distanceInput, distanceUnit]);
 
   const submitShot = (event: React.FormEvent) => {
     event.preventDefault();
@@ -28,7 +44,7 @@ export function ClubDistanceTracker({
       id: createId(),
       date,
       club,
-      distanceYards,
+      distanceYards: displayDistanceToYards(distanceInput, distanceUnit),
       shotShape,
     });
   };
@@ -38,22 +54,22 @@ export function ClubDistanceTracker({
       <form onSubmit={submitShot} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <h3 className="text-base font-semibold text-slate-900">Club Distance Tracking</h3>
 
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <label className="text-sm">
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="min-w-0 text-sm">
             <span className="text-slate-600">Date</span>
             <input
               type="date"
               value={date}
               onChange={(event) => setDate(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
-          <label className="text-sm">
+          <label className="min-w-0 text-sm">
             <span className="text-slate-600">Club</span>
             <select
               value={club}
               onChange={(event) => setClub(event.target.value as ClubName)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             >
               {clubOptions.map((clubOption) => (
                 <option key={clubOption} value={clubOption}>
@@ -63,24 +79,24 @@ export function ClubDistanceTracker({
             </select>
           </label>
 
-          <label className="text-sm">
-            <span className="text-slate-600">Carry / Total (yd)</span>
+          <label className="min-w-0 text-sm">
+            <span className="text-slate-600">Carry / Total ({distanceUnitLabel(distanceUnit)})</span>
             <input
               type="number"
               min={1}
               max={450}
-              value={distanceYards}
-              onChange={(event) => setDistanceYards(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={distanceInput}
+              onChange={(event) => setDistanceInput(Number(event.target.value))}
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
 
-          <label className="text-sm">
+          <label className="min-w-0 text-sm">
             <span className="text-slate-600">Shot Pattern</span>
             <select
               value={shotShape}
               onChange={(event) => setShotShape(event.target.value as ClubShot["shotShape"])}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             >
               <option value="straight">Straight</option>
               <option value="draw">Draw</option>
@@ -102,7 +118,9 @@ export function ClubDistanceTracker({
       <article className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <h3 className="text-base font-semibold text-slate-900">Distance Stats by Club</h3>
         {stats.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-600">Add shot data to unlock min/max/average yardages.</p>
+          <p className="mt-2 text-sm text-slate-600">
+            Add shot data to unlock min/max/average distance stats.
+          </p>
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -119,9 +137,9 @@ export function ClubDistanceTracker({
                 {stats.map((item) => (
                   <tr key={item.club} className="border-t border-slate-100 text-slate-700">
                     <td className="py-2 pr-3 font-semibold">{item.club}</td>
-                    <td className="py-2 pr-3">{item.average.toFixed(1)} yd</td>
-                    <td className="py-2 pr-3">{item.min.toFixed(0)} yd</td>
-                    <td className="py-2 pr-3">{item.max.toFixed(0)} yd</td>
+                    <td className="py-2 pr-3">{formatDistanceFromYards(item.average, distanceUnit, 1)}</td>
+                    <td className="py-2 pr-3">{formatDistanceFromYards(item.min, distanceUnit, 0)}</td>
+                    <td className="py-2 pr-3">{formatDistanceFromYards(item.max, distanceUnit, 0)}</td>
                     <td className="py-2 pr-3">{item.samples}</td>
                   </tr>
                 ))}
@@ -147,7 +165,7 @@ export function ClubDistanceTracker({
                 >
                   <div className="text-sm">
                     <p className="font-semibold text-slate-800">
-                      {shot.club} - {shot.distanceYards} yd
+                      {shot.club} - {formatDistanceFromYards(shot.distanceYards, distanceUnit, 1)}
                     </p>
                     <p className="text-xs text-slate-500">
                       {shot.date} · {shot.shotShape}

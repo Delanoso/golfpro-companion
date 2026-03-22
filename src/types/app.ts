@@ -1,4 +1,5 @@
 export type HoleCount = 9 | 18;
+export type DistanceUnit = "meters" | "yards";
 
 export type WedgeShot = {
   id: string;

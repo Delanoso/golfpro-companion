@@ -1,8 +1,14 @@
-import { useMemo, useState } from "react";
-import type { ClubShot } from "../../types/app";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ClubShot, DistanceUnit } from "../../types/app";
 import { getClubDistanceStats } from "../../utils/analytics";
+import {
+  displayDistanceToYards,
+  distanceUnitLabel,
+  yardsToDisplayDistance,
+} from "../../utils/units";
 
 type SmartCaddyProps = {
+  distanceUnit: DistanceUnit;
   clubShots: ClubShot[];
 };
 
@@ -19,14 +25,27 @@ const mode = (values: string[]) => {
   return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "N/A";
 };
 
-export function SmartCaddy({ clubShots }: SmartCaddyProps) {
-  const [targetDistance, setTargetDistance] = useState(150);
+export function SmartCaddy({ distanceUnit, clubShots }: SmartCaddyProps) {
+  const [targetDistance, setTargetDistance] = useState(distanceUnit === "meters" ? 137 : 150);
   const [windAdjustment, setWindAdjustment] = useState(0);
   const [elevationAdjustment, setElevationAdjustment] = useState(0);
   const [temperatureAdjustment, setTemperatureAdjustment] = useState(0);
+  const previousUnit = useRef<DistanceUnit>(distanceUnit);
 
-  const adjustedDistance =
+  useEffect(() => {
+    if (previousUnit.current === distanceUnit) return;
+    const convert = (value: number) =>
+      yardsToDisplayDistance(displayDistanceToYards(value, previousUnit.current), distanceUnit);
+    setTargetDistance(convert);
+    setWindAdjustment(convert);
+    setElevationAdjustment(convert);
+    setTemperatureAdjustment(convert);
+    previousUnit.current = distanceUnit;
+  }, [distanceUnit]);
+
+  const adjustedDistanceDisplay =
     targetDistance + windAdjustment + elevationAdjustment + temperatureAdjustment;
+  const adjustedDistanceYards = displayDistanceToYards(adjustedDistanceDisplay, distanceUnit);
 
   const recommendations = useMemo<Recommendation[]>(() => {
     return getClubDistanceStats(clubShots)
@@ -34,10 +53,10 @@ export function SmartCaddy({ clubShots }: SmartCaddyProps) {
         club: club.club,
         average: club.average,
         samples: club.samples,
-        gap: Math.abs(club.average - adjustedDistance),
+        gap: Math.abs(club.average - adjustedDistanceYards),
       }))
       .sort((a, b) => a.gap - b.gap);
-  }, [adjustedDistance, clubShots]);
+  }, [adjustedDistanceYards, clubShots]);
 
   const best = recommendations[0];
   const backup = recommendations[1];
@@ -56,47 +75,56 @@ export function SmartCaddy({ clubShots }: SmartCaddyProps) {
           Recommends clubs using your own historical distances, not tour-average numbers.
         </p>
 
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <label className="text-sm">
-            <span className="text-slate-600">Target distance (yd)</span>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="min-w-0 text-sm">
+            <span className="text-slate-600">
+              Target distance ({distanceUnitLabel(distanceUnit)})
+            </span>
             <input
               type="number"
               value={targetDistance}
               onChange={(event) => setTargetDistance(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
-          <label className="text-sm">
-            <span className="text-slate-600">Wind adjust (yd)</span>
+          <label className="min-w-0 text-sm">
+            <span className="text-slate-600">Wind adjust ({distanceUnitLabel(distanceUnit)})</span>
             <input
               type="number"
               value={windAdjustment}
               onChange={(event) => setWindAdjustment(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
-          <label className="text-sm">
-            <span className="text-slate-600">Elevation adjust (yd)</span>
+          <label className="min-w-0 text-sm">
+            <span className="text-slate-600">
+              Elevation adjust ({distanceUnitLabel(distanceUnit)})
+            </span>
             <input
               type="number"
               value={elevationAdjustment}
               onChange={(event) => setElevationAdjustment(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
-          <label className="text-sm">
-            <span className="text-slate-600">Temperature adjust (yd)</span>
+          <label className="min-w-0 text-sm">
+            <span className="text-slate-600">
+              Temperature adjust ({distanceUnitLabel(distanceUnit)})
+            </span>
             <input
               type="number"
               value={temperatureAdjustment}
               onChange={(event) => setTemperatureAdjustment(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
         </div>
 
         <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
-          Adjusted playing distance: <span className="font-semibold">{adjustedDistance.toFixed(1)} yd</span>
+          Adjusted playing distance:{" "}
+          <span className="font-semibold">
+            {adjustedDistanceDisplay.toFixed(1)} {distanceUnitLabel(distanceUnit)}
+          </span>
         </div>
       </article>
 
@@ -112,7 +140,10 @@ export function SmartCaddy({ clubShots }: SmartCaddyProps) {
               <p className="text-sm text-slate-700">Primary club</p>
               <p className="text-xl font-bold text-emerald-800">{best.club}</p>
               <p className="text-sm text-slate-700">
-                Avg {best.average.toFixed(1)} yd · gap {best.gap.toFixed(1)} yd · {best.samples} samples
+                Avg {yardsToDisplayDistance(best.average, distanceUnit).toFixed(1)}{" "}
+                {distanceUnitLabel(distanceUnit)} · gap{" "}
+                {yardsToDisplayDistance(best.gap, distanceUnit).toFixed(1)}{" "}
+                {distanceUnitLabel(distanceUnit)} · {best.samples} samples
               </p>
             </div>
 
@@ -121,7 +152,10 @@ export function SmartCaddy({ clubShots }: SmartCaddyProps) {
                 <p className="text-sm text-slate-700">Backup club</p>
                 <p className="text-lg font-bold text-slate-900">{backup.club}</p>
                 <p className="text-sm text-slate-700">
-                  Avg {backup.average.toFixed(1)} yd · gap {backup.gap.toFixed(1)} yd
+                  Avg {yardsToDisplayDistance(backup.average, distanceUnit).toFixed(1)}{" "}
+                  {distanceUnitLabel(distanceUnit)} · gap{" "}
+                  {yardsToDisplayDistance(backup.gap, distanceUnit).toFixed(1)}{" "}
+                  {distanceUnitLabel(distanceUnit)}
                 </p>
               </div>
             )}

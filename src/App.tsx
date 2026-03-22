@@ -8,11 +8,22 @@ import { LeagueManager } from "./features/league/LeagueManager";
 import { RoundEntryForm } from "./features/rounds/RoundEntryForm";
 import { SmartCaddy } from "./features/strategy/SmartCaddy";
 import { useLocalStorageState } from "./hooks/useLocalStorageState";
-import type { AppData, BettingGame, ClubShot, LeagueRound, RoundEntry } from "./types/app";
+import type {
+  AppData,
+  BettingGame,
+  ClubShot,
+  DistanceUnit,
+  LeagueRound,
+  RoundEntry,
+} from "./types/app";
 
 function App() {
   const [activeTab, setActiveTab] = useState<AppTab>("dashboard");
   const [data, setData] = useLocalStorageState<AppData>("golfpro-companion-v2", initialAppData);
+  const [distanceUnit, setDistanceUnit] = useLocalStorageState<DistanceUnit>(
+    "golfpro-companion-distance-unit",
+    "meters",
+  );
 
   const addRound = (round: RoundEntry) => {
     setData((current) => ({
@@ -88,41 +99,64 @@ function App() {
           <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
             GolfPro Companion · Rebuilt
           </p>
-          <div className="mt-1 flex items-start justify-between gap-2">
+          <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-2xl font-bold text-slate-900">Personal Stats + Strategy Suite</h1>
               <p className="text-sm text-slate-600">
                 Track advanced performance, social games, custom league scoring, and club-based recommendations.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={resetAllData}
-              className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700"
-            >
-              Reset data
-            </button>
+            <div className="flex items-center gap-2 self-start">
+              <label className="text-xs font-semibold text-slate-600">
+                Distance unit
+                <select
+                  value={distanceUnit}
+                  onChange={(event) => setDistanceUnit(event.target.value as DistanceUnit)}
+                  className="ml-2 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700"
+                >
+                  <option value="meters">Meters (default)</option>
+                  <option value="yards">Yards</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={resetAllData}
+                className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700"
+              >
+                Reset data
+              </button>
+            </div>
           </div>
         </header>
 
         <AppTabBar activeTab={activeTab} onChange={setActiveTab} />
 
         <section className="mt-4">
-          {activeTab === "dashboard" && <AnalyticsDashboard data={data} />}
+          {activeTab === "dashboard" && (
+            <AnalyticsDashboard data={data} distanceUnit={distanceUnit} />
+          )}
 
           {activeTab === "rounds" && (
-            <RoundEntryForm rounds={data.rounds} onAddRound={addRound} onDeleteRound={deleteRound} />
+            <RoundEntryForm
+              distanceUnit={distanceUnit}
+              rounds={data.rounds}
+              onAddRound={addRound}
+              onDeleteRound={deleteRound}
+            />
           )}
 
           {activeTab === "clubs" && (
             <ClubDistanceTracker
+              distanceUnit={distanceUnit}
               clubShots={data.clubShots}
               onAddShot={addClubShot}
               onDeleteShot={deleteClubShot}
             />
           )}
 
-          {activeTab === "strategy" && <SmartCaddy clubShots={data.clubShots} />}
+          {activeTab === "strategy" && (
+            <SmartCaddy distanceUnit={distanceUnit} clubShots={data.clubShots} />
+          )}
 
           {activeTab === "betting" && (
             <BettingGameTracker data={data} onAddGame={addBettingGame} onDeleteGame={deleteBettingGame} />

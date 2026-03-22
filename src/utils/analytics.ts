@@ -16,9 +16,8 @@ type ClubStat = {
 };
 
 type WedgeBucket = {
-  label: string;
-  min: number;
-  max: number;
+  minYards: number;
+  maxYards: number;
   samples: number;
   averageProximity: number;
 };
@@ -71,15 +70,16 @@ export function getPuttingSummary(rounds: RoundEntry[]): PuttingSummary {
 export function getWedgeBuckets(rounds: RoundEntry[]): WedgeBucket[] {
   const wedges = rounds.flatMap((round) => round.wedgeShots);
   const ranges = [
-    { label: "30-60 yd", min: 30, max: 60 },
-    { label: "61-90 yd", min: 61, max: 90 },
-    { label: "91-120 yd", min: 91, max: 120 },
-    { label: "121-150 yd", min: 121, max: 150 },
+    { minYards: 30, maxYards: 60 },
+    { minYards: 61, maxYards: 90 },
+    { minYards: 91, maxYards: 120 },
+    { minYards: 121, maxYards: 150 },
   ];
 
   return ranges.map((range) => {
     const inRange = wedges.filter(
-      (wedge) => wedge.distanceYards >= range.min && wedge.distanceYards <= range.max,
+      (wedge) =>
+        wedge.distanceYards >= range.minYards && wedge.distanceYards <= range.maxYards,
     );
     return {
       ...range,

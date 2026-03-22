@@ -84,50 +84,50 @@ export function BettingGameTracker({ data, onAddGame, onDeleteGame }: BettingGam
       <form onSubmit={submitGame} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <h3 className="text-base font-semibold text-slate-900">Betting & Social Game Entry</h3>
 
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <label className="text-sm">
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="min-w-0 text-sm">
             <span className="text-slate-600">Date</span>
             <input
               type="date"
               value={date}
               onChange={(event) => setDate(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
-          <label className="text-sm">
+          <label className="min-w-0 text-sm">
             <span className="text-slate-600">Game Type</span>
             <select
               value={gameType}
               onChange={(event) => setGameType(event.target.value as BettingGameType)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             >
               <option value="Vegas">Vegas</option>
               <option value="Banker">Banker</option>
               <option value="Hammer">Hammer</option>
             </select>
           </label>
-          <label className="col-span-2 text-sm">
+          <label className="min-w-0 text-sm sm:col-span-2">
             <span className="text-slate-600">Players (comma separated)</span>
             <input
               value={playersCsv}
               onChange={(event) => setPlayersCsv(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
               placeholder="You,Friend 1,Friend 2"
             />
           </label>
-          <label className="text-sm">
+          <label className="min-w-0 text-sm">
             <span className="text-slate-600">Stake per point</span>
             <input
               type="number"
               value={stakePerPoint}
               onChange={(event) => setStakePerPoint(Number(event.target.value))}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
           <button
             type="button"
             onClick={syncPlayers}
-            className="self-end rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white"
+            className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white sm:self-end"
           >
             Load player result rows
           </button>

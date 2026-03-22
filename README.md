@@ -26,6 +26,7 @@ This app was rebuilt as a **mobile-first golf performance suite** focused on:
    - log shots by club
    - track min, max, average, sample count
    - recent shot log
+   - distance unit toggle support (meters default, optional yards)
 
 4. **Smart "Caddy" Strategy**
    - target distance + conditions adjustments
@@ -47,6 +48,12 @@ This app was rebuilt as a **mobile-first golf performance suite** focused on:
 ## Data Persistence
 
 All entries are saved to browser `localStorage`, so analytics update immediately as data is entered.
+
+## Distance Units
+
+- App defaults to **meters**.
+- You can switch to **yards** from the header unit selector.
+- Stored data remains consistent while views and input labels adapt to your selected unit.
 
 ## Run
 
