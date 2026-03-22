@@ -1,154 +1,143 @@
-import { useEffect, useMemo, useState } from "react";
-import { BottomNav, type AppTab } from "./components/BottomNav";
-import { CourseSelector } from "./components/CourseSelector";
-import { HoleMap } from "./components/HoleMap";
-import { HoleSelector } from "./components/HoleSelector";
-import { Scorecard } from "./components/Scorecard";
-import { WeatherCard } from "./components/WeatherCard";
-import { useGeolocation } from "./hooks/useGeolocation";
-import { useWeather } from "./hooks/useWeather";
-import { getCourses } from "./services/courseService";
-import type { Course } from "./types/golf";
-import { getDistanceMeters } from "./utils/distance";
+import { useState } from "react";
+import { AppTabBar, type AppTab } from "./components/AppTabBar";
+import { initialAppData } from "./data/defaultData";
+import { BettingGameTracker } from "./features/betting/BettingGameTracker";
+import { ClubDistanceTracker } from "./features/clubs/ClubDistanceTracker";
+import { AnalyticsDashboard } from "./features/dashboard/AnalyticsDashboard";
+import { LeagueManager } from "./features/league/LeagueManager";
+import { RoundEntryForm } from "./features/rounds/RoundEntryForm";
+import { SmartCaddy } from "./features/strategy/SmartCaddy";
+import { useLocalStorageState } from "./hooks/useLocalStorageState";
+import type { AppData, BettingGame, ClubShot, LeagueRound, RoundEntry } from "./types/app";
 
 function App() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [coursesLoading, setCoursesLoading] = useState(true);
-  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
-  const [selectedHoleId, setSelectedHoleId] = useState<number>(1);
-  const [activeTab, setActiveTab] = useState<AppTab>("hole");
+  const [activeTab, setActiveTab] = useState<AppTab>("dashboard");
+  const [data, setData] = useLocalStorageState<AppData>("golfpro-companion-v2", initialAppData);
 
-  useEffect(() => {
-    const loadCourses = async () => {
-      setCoursesLoading(true);
-      const loadedCourses = await getCourses();
-      setCourses(loadedCourses);
-      setSelectedCourseId((current) => current ?? loadedCourses[0]?.id ?? null);
-      setCoursesLoading(false);
-    };
+  const addRound = (round: RoundEntry) => {
+    setData((current) => ({
+      ...current,
+      rounds: [...current.rounds, round],
+    }));
+  };
 
-    loadCourses();
-  }, []);
+  const deleteRound = (id: string) => {
+    setData((current) => ({
+      ...current,
+      rounds: current.rounds.filter((round) => round.id !== id),
+    }));
+  };
 
-  const selectedCourse = useMemo(
-    () => courses.find((course) => course.id === selectedCourseId) ?? courses[0] ?? null,
-    [courses, selectedCourseId],
-  );
+  const addClubShot = (shot: ClubShot) => {
+    setData((current) => ({
+      ...current,
+      clubShots: [...current.clubShots, shot],
+    }));
+  };
 
-  useEffect(() => {
-    if (!selectedCourse) return;
+  const deleteClubShot = (id: string) => {
+    setData((current) => ({
+      ...current,
+      clubShots: current.clubShots.filter((shot) => shot.id !== id),
+    }));
+  };
 
-    const hasHole = selectedCourse.holes.some((hole) => hole.id === selectedHoleId);
-    if (!hasHole) {
-      setSelectedHoleId(selectedCourse.holes[0]?.id ?? 1);
-    }
-  }, [selectedCourse, selectedHoleId]);
+  const addBettingGame = (game: BettingGame) => {
+    setData((current) => ({
+      ...current,
+      bettingGames: [...current.bettingGames, game],
+    }));
+  };
 
-  const selectedHole = useMemo(
-    () => selectedCourse?.holes.find((hole) => hole.id === selectedHoleId) ?? null,
-    [selectedCourse, selectedHoleId],
-  );
+  const deleteBettingGame = (id: string) => {
+    setData((current) => ({
+      ...current,
+      bettingGames: current.bettingGames.filter((game) => game.id !== id),
+    }));
+  };
 
-  const { position: userPosition, error: geolocationError, isTracking } = useGeolocation();
+  const updateLeagueSettings = (settings: AppData["leagueSettings"]) => {
+    setData((current) => ({
+      ...current,
+      leagueSettings: settings,
+    }));
+  };
 
-  const distanceToFront = useMemo(() => {
-    if (!userPosition || !selectedHole) return null;
-    return getDistanceMeters(userPosition, selectedHole.green.front);
-  }, [selectedHole, userPosition]);
+  const addLeagueRound = (round: LeagueRound) => {
+    setData((current) => ({
+      ...current,
+      leagueRounds: [...current.leagueRounds, round],
+    }));
+  };
 
-  const distanceToCenter = useMemo(() => {
-    if (!userPosition || !selectedHole) return null;
-    return getDistanceMeters(userPosition, selectedHole.green.center);
-  }, [selectedHole, userPosition]);
+  const deleteLeagueRound = (id: string) => {
+    setData((current) => ({
+      ...current,
+      leagueRounds: current.leagueRounds.filter((round) => round.id !== id),
+    }));
+  };
 
-  const weatherLocation = selectedHole?.green.center ?? selectedCourse?.center ?? null;
-  const { weather, loading: weatherLoading, error: weatherError } = useWeather(weatherLocation);
-
-  if (coursesLoading) {
-    return <div className="p-5 text-sm text-slate-600">Loading courses...</div>;
-  }
-
-  if (!selectedCourse || !selectedHole) {
-    return <div className="p-5 text-sm text-rose-600">No course data found.</div>;
-  }
+  const resetAllData = () => {
+    setData(initialAppData);
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
-        <header className="space-y-1">
-          <h1 className="text-2xl font-bold text-slate-900">GolfPro Companion</h1>
-          <p className="text-sm text-slate-600">
-            Mobile-first golfing companion for distances, scoring, and weather.
+    <div className="min-h-screen bg-slate-50">
+      <main className="mx-auto w-full max-w-4xl px-4 pb-8">
+        <header className="pt-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+            GolfPro Companion · Rebuilt
           </p>
+          <div className="mt-1 flex items-start justify-between gap-2">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">Personal Stats + Strategy Suite</h1>
+              <p className="text-sm text-slate-600">
+                Track advanced performance, social games, custom league scoring, and club-based recommendations.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={resetAllData}
+              className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700"
+            >
+              Reset data
+            </button>
+          </div>
         </header>
 
-        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-          <CourseSelector
-            courses={courses}
-            selectedCourseId={selectedCourse.id}
-            onSelectCourse={(courseId) => setSelectedCourseId(courseId)}
-          />
-          <p className="mt-2 text-xs text-slate-500">{selectedCourse.locationLabel}</p>
+        <AppTabBar activeTab={activeTab} onChange={setActiveTab} />
+
+        <section className="mt-4">
+          {activeTab === "dashboard" && <AnalyticsDashboard data={data} />}
+
+          {activeTab === "rounds" && (
+            <RoundEntryForm rounds={data.rounds} onAddRound={addRound} onDeleteRound={deleteRound} />
+          )}
+
+          {activeTab === "clubs" && (
+            <ClubDistanceTracker
+              clubShots={data.clubShots}
+              onAddShot={addClubShot}
+              onDeleteShot={deleteClubShot}
+            />
+          )}
+
+          {activeTab === "strategy" && <SmartCaddy clubShots={data.clubShots} />}
+
+          {activeTab === "betting" && (
+            <BettingGameTracker data={data} onAddGame={addBettingGame} onDeleteGame={deleteBettingGame} />
+          )}
+
+          {activeTab === "league" && (
+            <LeagueManager
+              data={data}
+              onUpdateSettings={updateLeagueSettings}
+              onAddRound={addLeagueRound}
+              onDeleteRound={deleteLeagueRound}
+            />
+          )}
         </section>
-
-        {activeTab === "hole" && (
-          <section className="space-y-4">
-            <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-              <HoleSelector
-                holes={selectedCourse.holes}
-                selectedHoleId={selectedHoleId}
-                onSelectHole={setSelectedHoleId}
-              />
-              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                <div className="rounded-xl bg-slate-50 p-3">
-                  <p className="text-slate-500">Par</p>
-                  <p className="text-lg font-bold">{selectedHole.par}</p>
-                </div>
-                <div className="rounded-xl bg-slate-50 p-3">
-                  <p className="text-slate-500">Yardage</p>
-                  <p className="text-lg font-bold">{selectedHole.yardage} yd</p>
-                </div>
-              </div>
-            </div>
-
-            <HoleMap hole={selectedHole} userPosition={userPosition} />
-
-            <div className="grid grid-cols-2 gap-2 text-center">
-              <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-                <p className="text-xs text-slate-500">To front</p>
-                <p className="text-lg font-bold">{distanceToFront ? `${distanceToFront.toFixed(1)} m` : "--"}</p>
-              </div>
-              <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-                <p className="text-xs text-slate-500">To pin (center)</p>
-                <p className="text-lg font-bold">{distanceToCenter ? `${distanceToCenter.toFixed(1)} m` : "--"}</p>
-              </div>
-            </div>
-
-            <div className="rounded-xl bg-white p-3 text-xs shadow-sm ring-1 ring-slate-200">
-              <p className="text-slate-600">
-                GPS status: <span className="font-semibold">{isTracking ? "Tracking" : "Stopped"}</span>
-              </p>
-              {geolocationError && <p className="mt-1 text-rose-600">{geolocationError}</p>}
-            </div>
-          </section>
-        )}
-
-        {activeTab === "scorecard" && (
-          <section className="space-y-3">
-            <h2 className="text-lg font-semibold text-slate-900">Dynamic Scorecard</h2>
-            <Scorecard holes={selectedCourse.holes} />
-          </section>
-        )}
-
-        {activeTab === "weather" && (
-          <section className="space-y-3">
-            <h2 className="text-lg font-semibold text-slate-900">Course Weather</h2>
-            <WeatherCard weather={weather} loading={weatherLoading} error={weatherError} />
-          </section>
-        )}
       </main>
-
-      <BottomNav activeTab={activeTab} onChange={setActiveTab} />
     </div>
   );
 }
