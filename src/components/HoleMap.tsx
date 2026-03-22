@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Circle, CircleMarker, MapContainer, Polyline, TileLayer, useMap } from "react-leaflet";
 import type { LatLngExpression } from "leaflet";
 import type { Hole, LatLng } from "../types/golf";
@@ -10,7 +10,11 @@ type HoleMapProps = {
 
 function MapFocus({ center }: { center: LatLngExpression }) {
   const map = useMap();
-  map.setView(center, 17);
+
+  useEffect(() => {
+    map.setView(center, 17, { animate: false });
+  }, [center, map]);
+
   return null;
 }
 
