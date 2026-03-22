@@ -200,7 +200,7 @@ export function RoundEntryForm({ rounds, onAddRound, onDeleteRound }: RoundEntry
             <ul className="mt-2 space-y-1 text-xs text-slate-700">
               {wedgeShots.map((shot) => (
                 <li key={shot.id}>
-                  {shot.distanceYards} yd -> {shot.proximityFeet} ft
+                  {shot.distanceYards} yd {"->"} {shot.proximityFeet} ft
                 </li>
               ))}
             </ul>
