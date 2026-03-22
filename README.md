@@ -5,7 +5,7 @@ Modern, mobile-first golf web app built with **React + TypeScript + Tailwind**, 
 ## Core Features
 
 - Course database with mock starter course: **Sunward Park Machie**
-- Hole-by-hole map view using **react-leaflet**
+- Hole-by-hole map view using **react-leaflet** + satellite tiles
 - Browser GPS tracking (Geolocation API)
 - Real-time distance to:
   - Front of green
@@ -98,6 +98,34 @@ Use the LAN URL from terminal to open on your phone.
 ```bash
 npm run build
 ```
+
+## Add real hole coordinates (Sunward Park Machie)
+
+Edit `src/data/mockCourses.ts` and update `sunwardParkMachieHoleCoordinates`.
+
+Each hole uses this shape:
+
+```ts
+{
+  id: 1,
+  par: 4,
+  yardage: 352,
+  tee: { lat: -26.197215, lng: 28.263299 },
+  greenFront: { lat: -26.194880, lng: 28.265001 },
+  greenCenter: { lat: -26.194808, lng: 28.265031 },
+  fairwayPath: [
+    { lat: -26.197215, lng: 28.263299 },
+    { lat: -26.196047, lng: 28.264330 },
+    { lat: -26.194880, lng: 28.265001 }
+  ]
+}
+```
+
+Recommended workflow:
+- Open Google Maps satellite (or GPS capture app) at the course.
+- Copy one hole at a time: tee, fairway midpoint(s), green front, green center.
+- Paste values into the matching hole in `sunwardParkMachieHoleCoordinates`.
+- Save and refresh; Vite hot reload updates immediately.
 
 ## Mobile-first notes
 

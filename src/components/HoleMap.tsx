@@ -53,8 +53,12 @@ export function HoleMap({ hole, userPosition }: HoleMapProps) {
       >
         <MapFocus center={centerPoint} />
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics'
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+        />
+        <TileLayer
+          attribution='Labels &copy; Esri'
+          url="https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
         />
 
         <Polyline positions={coursePath} pathOptions={{ color: "#16a34a", weight: 5 }} />
