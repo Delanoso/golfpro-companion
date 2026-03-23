@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { User } from "@supabase/supabase-js";
 import { AppTabBar, type AppTab } from "./components/AppTabBar";
 import { initialAppData } from "./data/defaultData";
 import { BettingGameTracker } from "./features/betting/BettingGameTracker";
@@ -17,11 +18,19 @@ import type {
   RoundEntry,
 } from "./types/app";
 
-function App() {
+type AppProps = {
+  currentUser: User;
+  onSignOut: () => Promise<void>;
+};
+
+function App({ currentUser, onSignOut }: AppProps) {
   const [activeTab, setActiveTab] = useState<AppTab>("dashboard");
-  const [data, setData] = useLocalStorageState<AppData>("golfpro-companion-v2", initialAppData);
+  const [data, setData] = useLocalStorageState<AppData>(
+    `golfpro-companion-data-${currentUser.id}`,
+    initialAppData,
+  );
   const [distanceUnit, setDistanceUnit] = useLocalStorageState<DistanceUnit>(
-    "golfpro-companion-distance-unit",
+    `golfpro-companion-distance-unit-${currentUser.id}`,
     "meters",
   );
 
@@ -92,6 +101,12 @@ function App() {
     setData(initialAppData);
   };
 
+  const displayName =
+    (typeof currentUser.user_metadata?.display_name === "string" &&
+      currentUser.user_metadata.display_name.trim()) ||
+    currentUser.email?.split("@")[0] ||
+    "Player";
+
   return (
     <div className="min-h-screen bg-slate-50">
       <main className="mx-auto w-full max-w-4xl px-4 pb-8">
@@ -104,6 +119,9 @@ function App() {
               <h1 className="text-2xl font-bold text-slate-900">Personal Stats + Strategy Suite</h1>
               <p className="text-sm text-slate-600">
                 Track advanced performance, social games, custom league scoring, and club-based recommendations.
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Signed in as <span className="font-semibold">{displayName}</span>
               </p>
             </div>
             <div className="flex items-center gap-2 self-start">
@@ -124,6 +142,15 @@ function App() {
                 className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700"
               >
                 Reset data
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void onSignOut();
+                }}
+                className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
+              >
+                Logout
               </button>
             </div>
           </div>

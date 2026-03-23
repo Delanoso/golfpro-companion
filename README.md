@@ -7,6 +7,7 @@ This app was rebuilt as a **mobile-first golf performance suite** focused on:
 - smart caddy club recommendations from your own data
 - custom local league scoring + auto handicap
 - club distance tracking (min/max/average)
+- player login and registration (Supabase Auth)
 
 ## Feature Modules
 
@@ -47,7 +48,57 @@ This app was rebuilt as a **mobile-first golf performance suite** focused on:
 
 ## Data Persistence
 
-All entries are saved to browser `localStorage`, so analytics update immediately as data is entered.
+Each player's app data is saved in browser `localStorage` under a user-specific key, so different logins on the same device stay separated.
+
+## Authentication + Registration Database Link
+
+This app uses **Supabase Auth** for login/registration and writes registered players to a `players` table.
+
+### Required environment variables
+
+```bash
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
+```
+
+You can also use Next-style names (supported in this app):
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=...
+```
+
+### Supabase SQL (run once)
+
+```sql
+create table if not exists public.players (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null unique,
+  display_name text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.players enable row level security;
+
+create policy "players_insert_own"
+on public.players
+for insert
+to authenticated
+with check (auth.uid() = id);
+
+create policy "players_select_own"
+on public.players
+for select
+to authenticated
+using (auth.uid() = id);
+
+create policy "players_update_own"
+on public.players
+for update
+to authenticated
+using (auth.uid() = id)
+with check (auth.uid() = id);
+```
 
 ## Distance Units
 
@@ -59,6 +110,7 @@ All entries are saved to browser `localStorage`, so analytics update immediately
 
 ```bash
 npm install
+cp .env.example .env
 npm run dev -- --host
 ```
 
