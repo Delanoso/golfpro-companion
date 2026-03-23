@@ -1,0 +1,9 @@
+services:
+  golfpro-companion:
+    container_name: golfpro-companion
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8087:80"
+    restart: unless-stopped

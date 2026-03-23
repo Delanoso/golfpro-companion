@@ -67,3 +67,46 @@ npm run dev -- --host
 ```bash
 npm run build
 ```
+
+## Deploy on a VPS (alongside another app)
+
+This app is static and can run in Docker on a different port so it does not conflict with your other VPS app.
+
+### 1) Upload repo and SSH into VPS
+
+```bash
+cd /path/to/your/projects
+git clone <your-repo-url> golfpro-companion
+cd golfpro-companion
+```
+
+### 2) Build and run on port 8087
+
+```bash
+docker compose -f docker-compose.vps.yml up -d --build
+```
+
+Test:
+
+```bash
+curl -I http://127.0.0.1:8087
+```
+
+### 3) (Optional) Put behind your existing Nginx reverse proxy
+
+Use `deploy/nginx-site-example.conf` as a template and point your subdomain to:
+
+- `http://127.0.0.1:8087`
+
+Then reload Nginx:
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### 4) Updating later
+
+```bash
+git pull
+docker compose -f docker-compose.vps.yml up -d --build
+```
