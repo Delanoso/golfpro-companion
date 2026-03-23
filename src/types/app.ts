@@ -35,6 +35,12 @@ export type ClubName =
   | "8I"
   | "9I"
   | "PW"
+  | "50W"
+  | "52W"
+  | "54W"
+  | "56W"
+  | "58W"
+  | "60W"
   | "GW"
   | "SW"
   | "LW";
