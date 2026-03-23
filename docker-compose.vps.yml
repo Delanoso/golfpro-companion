@@ -5,5 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8087:80"
+      # Default binding keeps app private to this server (no public exposure),
+      # preventing accidental interference with other public apps on 80/443.
+      - "${GOLFPRO_BIND_IP:-127.0.0.1}:${GOLFPRO_HOST_PORT:-8087}:80"
     restart: unless-stopped

@@ -80,7 +80,7 @@ git clone <your-repo-url> golfpro-companion
 cd golfpro-companion
 ```
 
-### 2) Build and run on port 8087
+### 2) Build and run in isolated mode (default)
 
 ```bash
 docker compose -f docker-compose.vps.yml up -d --build
@@ -90,6 +90,33 @@ Test:
 
 ```bash
 curl -I http://127.0.0.1:8087
+```
+
+By default the container binds to `127.0.0.1:8087`, which means:
+- it does **not** touch ports `80/443`
+- it does **not** conflict with your existing domain app
+
+### 2b) If you explicitly want IP:port public access
+
+Create an override env file on the VPS (you can copy `deploy/vps.env.example`):
+
+```bash
+cat > .env.vps << 'EOF'
+GOLFPRO_BIND_IP=0.0.0.0
+GOLFPRO_HOST_PORT=8087
+EOF
+```
+
+Then run:
+
+```bash
+docker compose --env-file .env.vps -f docker-compose.vps.yml up -d --build
+```
+
+And allow firewall:
+
+```bash
+sudo ufw allow 8087/tcp
 ```
 
 ### 3) (Optional) Put behind your existing Nginx reverse proxy
