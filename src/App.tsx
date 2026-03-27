@@ -26,6 +26,18 @@ type AppProps = {
   onSignOut: () => Promise<void>;
 };
 
+function normalizeAppData(data: AppData): AppData {
+  return {
+    ...initialAppData,
+    ...data,
+    trainingSessions: data.trainingSessions ?? [],
+    leagueSettings: {
+      ...initialAppData.leagueSettings,
+      ...data.leagueSettings,
+    },
+  };
+}
+
 function App({ currentUser, onSignOut }: AppProps) {
   const [activeSection, setActiveSection] = useState<AppSection>("golf-strategy");
   const [activeTab, setActiveTab] = useState<AppTab>("dashboard");
@@ -37,79 +49,84 @@ function App({ currentUser, onSignOut }: AppProps) {
     `golfpro-companion-distance-unit-${currentUser.id}`,
     "meters",
   );
+  const appData = normalizeAppData(data);
+
+  const updateData = (updater: (current: AppData) => AppData) => {
+    setData((current) => updater(normalizeAppData(current)));
+  };
 
   const addRound = (round: RoundEntry) => {
-    setData((current) => ({
+    updateData((current) => ({
       ...current,
       rounds: [...current.rounds, round],
     }));
   };
 
   const deleteRound = (id: string) => {
-    setData((current) => ({
+    updateData((current) => ({
       ...current,
       rounds: current.rounds.filter((round) => round.id !== id),
     }));
   };
 
   const addClubShot = (shot: ClubShot) => {
-    setData((current) => ({
+    updateData((current) => ({
       ...current,
       clubShots: [...current.clubShots, shot],
     }));
   };
 
   const deleteClubShot = (id: string) => {
-    setData((current) => ({
+    updateData((current) => ({
       ...current,
       clubShots: current.clubShots.filter((shot) => shot.id !== id),
     }));
   };
 
   const addBettingGame = (game: BettingGame) => {
-    setData((current) => ({
+    updateData((current) => ({
       ...current,
       bettingGames: [...current.bettingGames, game],
     }));
   };
 
   const deleteBettingGame = (id: string) => {
-    setData((current) => ({
+    updateData((current) => ({
       ...current,
       bettingGames: current.bettingGames.filter((game) => game.id !== id),
     }));
   };
 
   const updateLeagueSettings = (settings: AppData["leagueSettings"]) => {
-    setData((current) => ({
+    updateData((current) => ({
       ...current,
       leagueSettings: settings,
     }));
   };
 
   const addLeagueRound = (round: LeagueRound) => {
-    setData((current) => ({
+    updateData((current) => ({
       ...current,
       leagueRounds: [...current.leagueRounds, round],
     }));
   };
 
   const deleteLeagueRound = (id: string) => {
-    setData((current) => ({
+    updateData((current) => ({
       ...current,
       leagueRounds: current.leagueRounds.filter((round) => round.id !== id),
     }));
   };
 
   const addTrainingSession = (session: AppData["trainingSessions"][number]) => {
-    setData((current) => ({
+    updateData((current) => ({
       ...current,
       trainingSessions: [...current.trainingSessions, session],
     }));
   };
 
   const deleteTrainingSession = (id: string) => {
-    setData((current) => ({
+    updateData((current) => ({
       ...current,
       trainingSessions: current.trainingSessions.filter((session) => session.id !== id),
     }));
@@ -183,13 +200,13 @@ function App({ currentUser, onSignOut }: AppProps) {
           {activeSection === "golf-strategy" && (
             <>
               {activeTab === "dashboard" && (
-                <AnalyticsDashboard data={data} distanceUnit={distanceUnit} />
+                <AnalyticsDashboard data={appData} distanceUnit={distanceUnit} />
               )}
 
               {activeTab === "rounds" && (
                 <RoundEntryForm
                   distanceUnit={distanceUnit}
-                  rounds={data.rounds}
+                  rounds={appData.rounds}
                   onAddRound={addRound}
                   onDeleteRound={deleteRound}
                 />
@@ -198,19 +215,19 @@ function App({ currentUser, onSignOut }: AppProps) {
               {activeTab === "clubs" && (
                 <ClubDistanceTracker
                   distanceUnit={distanceUnit}
-                  clubShots={data.clubShots}
+                  clubShots={appData.clubShots}
                   onAddShot={addClubShot}
                   onDeleteShot={deleteClubShot}
                 />
               )}
 
               {activeTab === "strategy" && (
-                <SmartCaddy distanceUnit={distanceUnit} clubShots={data.clubShots} />
+                <SmartCaddy distanceUnit={distanceUnit} clubShots={appData.clubShots} />
               )}
 
               {activeTab === "betting" && (
                 <BettingGameTracker
-                  data={data}
+                  data={appData}
                   onAddGame={addBettingGame}
                   onDeleteGame={deleteBettingGame}
                 />
@@ -218,7 +235,7 @@ function App({ currentUser, onSignOut }: AppProps) {
 
               {activeTab === "league" && (
                 <LeagueManager
-                  data={data}
+                  data={appData}
                   onUpdateSettings={updateLeagueSettings}
                   onAddRound={addLeagueRound}
                   onDeleteRound={deleteLeagueRound}
@@ -230,7 +247,7 @@ function App({ currentUser, onSignOut }: AppProps) {
           {activeSection === "training" && (
             <TrainingCamera
               distanceUnit={distanceUnit}
-              sessions={data.trainingSessions}
+              sessions={appData.trainingSessions}
               onAddSession={addTrainingSession}
               onDeleteSession={deleteTrainingSession}
             />
