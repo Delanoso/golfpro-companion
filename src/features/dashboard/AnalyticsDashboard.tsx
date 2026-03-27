@@ -65,7 +65,7 @@ export function AnalyticsDashboard({ data, distanceUnit }: AnalyticsDashboardPro
                 Miss pattern:{" "}
                 <span className="font-semibold">
                   {bucket.samples
-                    ? `L ${bucket.missLeftRate.toFixed(0)}% · R ${bucket.missRightRate.toFixed(0)}% · O ${bucket.missOverRate.toFixed(0)}% · S ${bucket.missShortRate.toFixed(0)}%`
+                    ? `L ${bucket.missLeftRate.toFixed(0)}% · R ${bucket.missRightRate.toFixed(0)}% · O ${bucket.missOverRate.toFixed(0)}% · S ${bucket.missShortRate.toFixed(0)}% · G ${bucket.onGreenRate.toFixed(0)}%`
                     : "--"}
                 </span>
               </p>

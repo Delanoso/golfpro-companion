@@ -6,7 +6,7 @@ export type WedgeShot = {
   id: string;
   hole?: number;
   distanceYards: number;
-  miss: "left" | "right" | "over" | "short";
+  miss: "left" | "right" | "over" | "short" | "on-green";
 };
 
 export type HoleScore = {

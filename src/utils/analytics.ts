@@ -19,6 +19,7 @@ type WedgeBucket = {
   minYards: number;
   maxYards: number;
   samples: number;
+  onGreenRate: number;
   missLeftRate: number;
   missRightRate: number;
   missOverRate: number;
@@ -89,6 +90,7 @@ export function getWedgeBuckets(rounds: RoundEntry[]): WedgeBucket[] {
     return {
       ...range,
       samples: inRange.length,
+      onGreenRate: inRange.length === 0 ? 0 : (missCount("on-green") / inRange.length) * 100,
       missLeftRate: inRange.length === 0 ? 0 : (missCount("left") / inRange.length) * 100,
       missRightRate: inRange.length === 0 ? 0 : (missCount("right") / inRange.length) * 100,
       missOverRate: inRange.length === 0 ? 0 : (missCount("over") / inRange.length) * 100,
@@ -103,6 +105,7 @@ export function estimateWedgeStrokesLost(rounds: RoundEntry[]) {
 
   // Rough heuristic: directional misses imply a weaker wedge outcome profile.
   const missPenaltyMap: Record<WedgeShot["miss"], number> = {
+    "on-green": 0.1,
     short: 0.7,
     over: 0.6,
     left: 0.5,

@@ -339,6 +339,7 @@ export function RoundEntryForm({
                           <option value="right">Miss right</option>
                           <option value="over">Over</option>
                           <option value="short">Short</option>
+                          <option value="on-green">On green</option>
                         </select>
                       </td>
                     </tr>
