@@ -54,23 +54,6 @@ export type ClubShot = {
   shotShape: "straight" | "draw" | "fade" | "miss-left" | "miss-right";
 };
 
-export type BettingGameType = "Vegas" | "Banker" | "Hammer";
-
-export type BettingResult = {
-  player: string;
-  points: number;
-  netAmount: number;
-};
-
-export type BettingGame = {
-  id: string;
-  date: string;
-  gameType: BettingGameType;
-  stakePerPoint: number;
-  results: BettingResult[];
-  notes?: string;
-};
-
 export type LeaguePlayerRound = {
   player: string;
   grossScore: number;
@@ -96,7 +79,6 @@ export type LeagueSettings = {
 export type AppData = {
   rounds: RoundEntry[];
   clubShots: ClubShot[];
-  bettingGames: BettingGame[];
   leagueRounds: LeagueRound[];
   leagueSettings: LeagueSettings;
 };

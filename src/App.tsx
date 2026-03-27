@@ -3,7 +3,6 @@ import type { User } from "@supabase/supabase-js";
 import { AppSectionBar } from "./components/AppSectionBar";
 import { AppTabBar, type AppTab } from "./components/AppTabBar";
 import { initialAppData } from "./data/defaultData";
-import { BettingGameTracker } from "./features/betting/BettingGameTracker";
 import { ClubDistanceTracker } from "./features/clubs/ClubDistanceTracker";
 import { AnalyticsDashboard } from "./features/dashboard/AnalyticsDashboard";
 import { LeagueManager } from "./features/league/LeagueManager";
@@ -13,7 +12,6 @@ import { useLocalStorageState } from "./hooks/useLocalStorageState";
 import type {
   AppSection,
   AppData,
-  BettingGame,
   ClubShot,
   DistanceUnit,
   LeagueRound,
@@ -78,20 +76,6 @@ function App({ currentUser, onSignOut }: AppProps) {
     updateData((current) => ({
       ...current,
       clubShots: current.clubShots.filter((shot) => shot.id !== id),
-    }));
-  };
-
-  const addBettingGame = (game: BettingGame) => {
-    updateData((current) => ({
-      ...current,
-      bettingGames: [...current.bettingGames, game],
-    }));
-  };
-
-  const deleteBettingGame = (id: string) => {
-    updateData((current) => ({
-      ...current,
-      bettingGames: current.bettingGames.filter((game) => game.id !== id),
     }));
   };
 
@@ -207,14 +191,6 @@ function App({ currentUser, onSignOut }: AppProps) {
 
               {activeTab === "strategy" && (
                 <SmartCaddy distanceUnit={distanceUnit} clubShots={appData.clubShots} />
-              )}
-
-              {activeTab === "betting" && (
-                <BettingGameTracker
-                  data={appData}
-                  onAddGame={addBettingGame}
-                  onDeleteGame={deleteBettingGame}
-                />
               )}
 
               {activeTab === "league" && (

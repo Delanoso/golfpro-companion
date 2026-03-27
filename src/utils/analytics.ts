@@ -118,19 +118,6 @@ export function getClubDistanceStats(shots: ClubShot[]): ClubStat[] {
     .sort((a, b) => b.average - a.average);
 }
 
-export function getBettingNetByPlayer(data: AppData) {
-  const totals = new Map<string, number>();
-  data.bettingGames.forEach((game) => {
-    game.results.forEach((result) => {
-      totals.set(result.player, (totals.get(result.player) ?? 0) + result.netAmount);
-    });
-  });
-
-  return Array.from(totals.entries())
-    .map(([player, net]) => ({ player, net }))
-    .sort((a, b) => b.net - a.net);
-}
-
 type LeaderboardRow = {
   player: string;
   rounds: number;

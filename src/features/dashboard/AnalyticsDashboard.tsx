@@ -2,7 +2,6 @@ import { StatCard } from "../../components/StatCard";
 import type { AppData, DistanceUnit } from "../../types/app";
 import {
   getBiggestLeak,
-  getBettingNetByPlayer,
   getClubDistanceStats,
   getLeagueLeaderboard,
   getPuttingSummary,
@@ -23,7 +22,6 @@ export function AnalyticsDashboard({ data, distanceUnit }: AnalyticsDashboardPro
   const puttingSummary = getPuttingSummary(data.rounds);
   const wedgeBuckets = getWedgeBuckets(data.rounds);
   const clubStats = getClubDistanceStats(data.clubShots);
-  const bettingTotals = getBettingNetByPlayer(data);
   const leaderboard = getLeagueLeaderboard(data);
   const leak = getBiggestLeak(data.rounds);
 
@@ -123,27 +121,9 @@ export function AnalyticsDashboard({ data, distanceUnit }: AnalyticsDashboardPro
       </article>
 
       <article className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-        <h3 className="text-base font-semibold text-slate-900">Betting & League Snapshot</h3>
+        <h3 className="text-base font-semibold text-slate-900">League Snapshot</h3>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <div className="rounded-xl bg-slate-50 p-3">
-            <p className="text-sm font-semibold text-slate-800">Betting Net</p>
-            {bettingTotals.length === 0 ? (
-              <p className="mt-1 text-sm text-slate-600">No betting games logged yet.</p>
-            ) : (
-              <ul className="mt-2 space-y-1 text-sm">
-                {bettingTotals.slice(0, 4).map((row) => (
-                  <li key={row.player} className="flex justify-between">
-                    <span>{row.player}</span>
-                    <span className={row.net >= 0 ? "text-emerald-700" : "text-rose-700"}>
-                      {row.net >= 0 ? "+" : ""}
-                      {row.net.toFixed(2)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div className="rounded-xl bg-slate-50 p-3">
+          <div className="rounded-xl bg-slate-50 p-3 md:col-span-2">
             <p className="text-sm font-semibold text-slate-800">League Leaderboard</p>
             {leaderboard.every((row) => row.rounds === 0) ? (
               <p className="mt-1 text-sm text-slate-600">No league rounds yet.</p>

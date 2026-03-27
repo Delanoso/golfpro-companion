@@ -28,7 +28,6 @@ export const clubOptions: ClubName[] = [
 export const initialAppData: AppData = {
   rounds: [],
   clubShots: [],
-  bettingGames: [],
   leagueRounds: [],
   leagueSettings: {
     players: ["You", "Friend 1", "Friend 2", "Friend 3"],
