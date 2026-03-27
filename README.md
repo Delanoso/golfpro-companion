@@ -9,7 +9,11 @@ This app was rebuilt as a **mobile-first golf performance suite** focused on:
 - club distance tracking (min/max/average)
 - player login and registration (Supabase Auth)
 
-## Feature Modules
+## App Sections
+
+### Golf Strategy
+
+Contains all existing strategy/analytics tools:
 
 1. **Analytics Dashboard**
    - round trends and score vs par
@@ -45,6 +49,14 @@ This app was rebuilt as a **mobile-first golf performance suite** focused on:
    - add league rounds with gross score entry
    - auto handicap estimate + net score + points
    - shared leaderboard
+
+### Training
+
+- **Training Camera**
+  - uses phone camera access
+  - estimates swing speed, ball speed, launch angle, carry, and total distance
+  - stores training sessions in-app for later review
+  - clearly marked as training-grade estimation (not equivalent to calibrated launch monitor hardware)
 
 ## Data Persistence
 

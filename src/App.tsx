@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { User } from "@supabase/supabase-js";
+import { AppSectionBar } from "./components/AppSectionBar";
 import { AppTabBar, type AppTab } from "./components/AppTabBar";
 import { initialAppData } from "./data/defaultData";
 import { BettingGameTracker } from "./features/betting/BettingGameTracker";
@@ -8,8 +9,10 @@ import { AnalyticsDashboard } from "./features/dashboard/AnalyticsDashboard";
 import { LeagueManager } from "./features/league/LeagueManager";
 import { RoundEntryForm } from "./features/rounds/RoundEntryForm";
 import { SmartCaddy } from "./features/strategy/SmartCaddy";
+import { TrainingCamera } from "./features/training/TrainingCamera";
 import { useLocalStorageState } from "./hooks/useLocalStorageState";
 import type {
+  AppSection,
   AppData,
   BettingGame,
   ClubShot,
@@ -24,6 +27,7 @@ type AppProps = {
 };
 
 function App({ currentUser, onSignOut }: AppProps) {
+  const [activeSection, setActiveSection] = useState<AppSection>("golf-strategy");
   const [activeTab, setActiveTab] = useState<AppTab>("dashboard");
   const [data, setData] = useLocalStorageState<AppData>(
     `golfpro-companion-data-${currentUser.id}`,
@@ -97,6 +101,20 @@ function App({ currentUser, onSignOut }: AppProps) {
     }));
   };
 
+  const addTrainingSession = (session: AppData["trainingSessions"][number]) => {
+    setData((current) => ({
+      ...current,
+      trainingSessions: [...current.trainingSessions, session],
+    }));
+  };
+
+  const deleteTrainingSession = (id: string) => {
+    setData((current) => ({
+      ...current,
+      trainingSessions: current.trainingSessions.filter((session) => session.id !== id),
+    }));
+  };
+
   const resetAllData = () => {
     setData(initialAppData);
   };
@@ -156,45 +174,65 @@ function App({ currentUser, onSignOut }: AppProps) {
           </div>
         </header>
 
-        <AppTabBar activeTab={activeTab} onChange={setActiveTab} />
+        <AppSectionBar activeSection={activeSection} onChange={setActiveSection} />
+        {activeSection === "golf-strategy" && (
+          <AppTabBar activeTab={activeTab} onChange={setActiveTab} title="Golf Strategy" />
+        )}
 
         <section className="mt-4">
-          {activeTab === "dashboard" && (
-            <AnalyticsDashboard data={data} distanceUnit={distanceUnit} />
+          {activeSection === "golf-strategy" && (
+            <>
+              {activeTab === "dashboard" && (
+                <AnalyticsDashboard data={data} distanceUnit={distanceUnit} />
+              )}
+
+              {activeTab === "rounds" && (
+                <RoundEntryForm
+                  distanceUnit={distanceUnit}
+                  rounds={data.rounds}
+                  onAddRound={addRound}
+                  onDeleteRound={deleteRound}
+                />
+              )}
+
+              {activeTab === "clubs" && (
+                <ClubDistanceTracker
+                  distanceUnit={distanceUnit}
+                  clubShots={data.clubShots}
+                  onAddShot={addClubShot}
+                  onDeleteShot={deleteClubShot}
+                />
+              )}
+
+              {activeTab === "strategy" && (
+                <SmartCaddy distanceUnit={distanceUnit} clubShots={data.clubShots} />
+              )}
+
+              {activeTab === "betting" && (
+                <BettingGameTracker
+                  data={data}
+                  onAddGame={addBettingGame}
+                  onDeleteGame={deleteBettingGame}
+                />
+              )}
+
+              {activeTab === "league" && (
+                <LeagueManager
+                  data={data}
+                  onUpdateSettings={updateLeagueSettings}
+                  onAddRound={addLeagueRound}
+                  onDeleteRound={deleteLeagueRound}
+                />
+              )}
+            </>
           )}
 
-          {activeTab === "rounds" && (
-            <RoundEntryForm
+          {activeSection === "training" && (
+            <TrainingCamera
               distanceUnit={distanceUnit}
-              rounds={data.rounds}
-              onAddRound={addRound}
-              onDeleteRound={deleteRound}
-            />
-          )}
-
-          {activeTab === "clubs" && (
-            <ClubDistanceTracker
-              distanceUnit={distanceUnit}
-              clubShots={data.clubShots}
-              onAddShot={addClubShot}
-              onDeleteShot={deleteClubShot}
-            />
-          )}
-
-          {activeTab === "strategy" && (
-            <SmartCaddy distanceUnit={distanceUnit} clubShots={data.clubShots} />
-          )}
-
-          {activeTab === "betting" && (
-            <BettingGameTracker data={data} onAddGame={addBettingGame} onDeleteGame={deleteBettingGame} />
-          )}
-
-          {activeTab === "league" && (
-            <LeagueManager
-              data={data}
-              onUpdateSettings={updateLeagueSettings}
-              onAddRound={addLeagueRound}
-              onDeleteRound={deleteLeagueRound}
+              sessions={data.trainingSessions}
+              onAddSession={addTrainingSession}
+              onDeleteSession={deleteTrainingSession}
             />
           )}
         </section>

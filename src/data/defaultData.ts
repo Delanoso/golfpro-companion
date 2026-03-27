@@ -30,6 +30,7 @@ export const initialAppData: AppData = {
   clubShots: [],
   bettingGames: [],
   leagueRounds: [],
+  trainingSessions: [],
   leagueSettings: {
     players: ["You", "Friend 1", "Friend 2", "Friend 3"],
     winnerPoints: 5,

@@ -3,6 +3,7 @@ export type AppTab = "dashboard" | "rounds" | "clubs" | "strategy" | "betting" |
 type AppTabBarProps = {
   activeTab: AppTab;
   onChange: (tab: AppTab) => void;
+  title?: string;
 };
 
 const tabs: Array<{ id: AppTab; label: string }> = [
@@ -14,9 +15,10 @@ const tabs: Array<{ id: AppTab; label: string }> = [
   { id: "league", label: "League" },
 ];
 
-export function AppTabBar({ activeTab, onChange }: AppTabBarProps) {
+export function AppTabBar({ activeTab, onChange, title }: AppTabBarProps) {
   return (
     <nav className="sticky top-0 z-20 -mx-4 overflow-x-auto border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
+      {title && <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>}
       <div className="flex min-w-max gap-2">
         {tabs.map((tab) => (
           <button
