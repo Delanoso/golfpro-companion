@@ -4,8 +4,18 @@ export type AppSection = "golf-strategy";
 
 export type WedgeShot = {
   id: string;
+  hole?: number;
   distanceYards: number;
   proximityFeet: number;
+};
+
+export type HoleScore = {
+  holeNumber: number;
+  par: number;
+  strokes: number;
+  putts: number;
+  wedgeDistanceYards?: number;
+  wedgeProximityFeet?: number;
 };
 
 export type RoundEntry = {
@@ -18,6 +28,7 @@ export type RoundEntry = {
   putts: number;
   onePutts: number;
   threePutts: number;
+  holeScores: HoleScore[];
   wedgeShots: WedgeShot[];
   notes?: string;
 };

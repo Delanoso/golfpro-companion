@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { DistanceUnit, RoundEntry, WedgeShot } from "../../types/app";
+import type { DistanceUnit, HoleCount, HoleScore, RoundEntry, WedgeShot } from "../../types/app";
 import { clamp, createId, todayIsoDate } from "../../utils/helpers";
 import {
   displayDistanceToYards,
@@ -14,6 +14,35 @@ type RoundEntryFormProps = {
   onDeleteRound: (id: string) => void;
 };
 
+type HoleScoreDraft = {
+  holeNumber: number;
+  par: number;
+  strokes: number;
+  putts: number;
+  wedgeDistance: number | "";
+  wedgeProximity: number | "";
+};
+
+function createHoleDraft(holeNumber: number): HoleScoreDraft {
+  return {
+    holeNumber,
+    par: 4,
+    strokes: 4,
+    putts: 2,
+    wedgeDistance: "",
+    wedgeProximity: "",
+  };
+}
+
+function ensureHoleDrafts(count: HoleCount, existing: HoleScoreDraft[]): HoleScoreDraft[] {
+  const next: HoleScoreDraft[] = [];
+  for (let hole = 1; hole <= count; hole += 1) {
+    const previous = existing.find((item) => item.holeNumber === hole);
+    next.push(previous ?? createHoleDraft(hole));
+  }
+  return next;
+}
+
 export function RoundEntryForm({
   distanceUnit,
   rounds,
@@ -22,71 +51,119 @@ export function RoundEntryForm({
 }: RoundEntryFormProps) {
   const [date, setDate] = useState(todayIsoDate());
   const [course, setCourse] = useState("Sunward Park");
-  const [holes, setHoles] = useState<9 | 18>(18);
-  const [par, setPar] = useState(72);
-  const [totalScore, setTotalScore] = useState(88);
-  const [putts, setPutts] = useState(34);
-  const [onePutts, setOnePutts] = useState(5);
-  const [threePutts, setThreePutts] = useState(2);
+  const [holes, setHoles] = useState<HoleCount>(18);
   const [notes, setNotes] = useState("");
-
-  const [wedgeDistance, setWedgeDistance] = useState(
-    distanceUnit === "meters" ? 73 : 80,
-  );
-  const [wedgeProximity, setWedgeProximity] = useState(22);
-  const [wedgeShots, setWedgeShots] = useState<WedgeShot[]>([]);
+  const [holeDrafts, setHoleDrafts] = useState<HoleScoreDraft[]>(() => ensureHoleDrafts(18, []));
   const previousUnit = useRef<DistanceUnit>(distanceUnit);
 
   useEffect(() => {
+    setHoleDrafts((current) => ensureHoleDrafts(holes, current));
+  }, [holes]);
+
+  useEffect(() => {
     if (previousUnit.current === distanceUnit) return;
-    const distanceInYards = displayDistanceToYards(wedgeDistance, previousUnit.current);
-    setWedgeDistance(yardsToDisplayDistance(distanceInYards, distanceUnit));
+    setHoleDrafts((current) =>
+      current.map((draft) => {
+        if (draft.wedgeDistance === "") return draft;
+        const yards = displayDistanceToYards(draft.wedgeDistance, previousUnit.current);
+        return {
+          ...draft,
+          wedgeDistance: yardsToDisplayDistance(yards, distanceUnit),
+        };
+      }),
+    );
     previousUnit.current = distanceUnit;
-  }, [distanceUnit, wedgeDistance]);
+  }, [distanceUnit]);
 
-  const validationError = useMemo(() => {
-    if (onePutts + threePutts > holes) return "1-putts + 3-putts cannot exceed total holes.";
-    if (putts < onePutts + threePutts) return "Total putts cannot be less than 1-putts + 3-putts.";
+  const summary = useMemo(() => {
+    const totalPar = holeDrafts.reduce((sum, holeScore) => sum + holeScore.par, 0);
+    const totalScore = holeDrafts.reduce((sum, holeScore) => sum + holeScore.strokes, 0);
+    const totalPutts = holeDrafts.reduce((sum, holeScore) => sum + holeScore.putts, 0);
+    const onePutts = holeDrafts.filter((holeScore) => holeScore.putts === 1).length;
+    const threePutts = holeDrafts.filter((holeScore) => holeScore.putts >= 3).length;
+    return { totalPar, totalScore, totalPutts, onePutts, threePutts };
+  }, [holeDrafts]);
+
+  const validationError = useMemo<string | null>(() => {
+    for (const hole of holeDrafts) {
+      if (hole.putts > hole.strokes) {
+        return `Hole ${hole.holeNumber}: putts cannot be more than strokes.`;
+      }
+
+      const hasWedgeDistance = hole.wedgeDistance !== "";
+      const hasWedgeProximity = hole.wedgeProximity !== "";
+      if (hasWedgeDistance !== hasWedgeProximity) {
+        return `Hole ${hole.holeNumber}: add both wedge distance and leave, or leave both empty.`;
+      }
+    }
     return null;
-  }, [holes, onePutts, putts, threePutts]);
+  }, [holeDrafts]);
 
-  const addWedgeShot = () => {
-    setWedgeShots((current) => [
-      ...current,
-      {
-        id: createId(),
-        distanceYards: clamp(displayDistanceToYards(wedgeDistance, distanceUnit), 1, 220),
-        proximityFeet: clamp(wedgeProximity, 0, 200),
-      },
-    ]);
+  const updateHoleDraft = (
+    holeNumber: number,
+    field: keyof Omit<HoleScoreDraft, "holeNumber">,
+    value: number | "",
+  ) => {
+    setHoleDrafts((current) =>
+      current.map((draft) => {
+        if (draft.holeNumber !== holeNumber) return draft;
+        return { ...draft, [field]: value };
+      }),
+    );
   };
 
   const submitRound = (event: React.FormEvent) => {
     event.preventDefault();
     if (validationError) return;
 
+    const holeScores: HoleScore[] = holeDrafts.map((hole) => ({
+      holeNumber: hole.holeNumber,
+      par: clamp(hole.par, 2, 7),
+      strokes: clamp(hole.strokes, 1, 20),
+      putts: clamp(hole.putts, 0, 10),
+      wedgeDistanceYards:
+        hole.wedgeDistance === ""
+          ? undefined
+          : clamp(displayDistanceToYards(hole.wedgeDistance, distanceUnit), 1, 220),
+      wedgeProximityFeet:
+        hole.wedgeProximity === "" ? undefined : clamp(hole.wedgeProximity, 0, 200),
+    }));
+
+    const wedgeShots: WedgeShot[] = holeScores
+      .filter(
+        (hole) =>
+          typeof hole.wedgeDistanceYards === "number" && typeof hole.wedgeProximityFeet === "number",
+      )
+      .map((hole) => ({
+        id: createId(),
+        hole: hole.holeNumber,
+        distanceYards: hole.wedgeDistanceYards as number,
+        proximityFeet: hole.wedgeProximityFeet as number,
+      }));
+
     onAddRound({
       id: createId(),
       date,
       course,
       holes,
-      par,
-      totalScore,
-      putts,
-      onePutts,
-      threePutts,
+      par: summary.totalPar,
+      totalScore: summary.totalScore,
+      putts: summary.totalPutts,
+      onePutts: summary.onePutts,
+      threePutts: summary.threePutts,
+      holeScores,
       wedgeShots,
       notes: notes.trim() || undefined,
     });
 
     setNotes("");
-    setWedgeShots([]);
+    setHoleDrafts(ensureHoleDrafts(holes, []));
   };
 
   return (
     <section className="space-y-4">
       <form onSubmit={submitRound} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-        <h3 className="text-base font-semibold text-slate-900">Round Entry</h3>
+        <h3 className="text-base font-semibold text-slate-900">Scorecard Entry (9/18 holes)</h3>
 
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="min-w-0 text-sm">
@@ -112,69 +189,12 @@ export function RoundEntryForm({
             <span className="text-slate-600">Holes</span>
             <select
               value={holes}
-              onChange={(event) => setHoles(Number(event.target.value) as 9 | 18)}
+              onChange={(event) => setHoles(Number(event.target.value) as HoleCount)}
               className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             >
               <option value={9}>9</option>
               <option value={18}>18</option>
             </select>
-          </label>
-          <label className="min-w-0 text-sm">
-            <span className="text-slate-600">Par</span>
-            <input
-              type="number"
-              value={par}
-              min={27}
-              max={90}
-              onChange={(event) => setPar(Number(event.target.value))}
-              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
-            />
-          </label>
-
-          <label className="min-w-0 text-sm">
-            <span className="text-slate-600">Total Score</span>
-            <input
-              type="number"
-              value={totalScore}
-              min={20}
-              max={200}
-              onChange={(event) => setTotalScore(Number(event.target.value))}
-              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
-            />
-          </label>
-          <label className="min-w-0 text-sm">
-            <span className="text-slate-600">Total Putts</span>
-            <input
-              type="number"
-              value={putts}
-              min={0}
-              max={100}
-              onChange={(event) => setPutts(Number(event.target.value))}
-              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
-            />
-          </label>
-
-          <label className="min-w-0 text-sm">
-            <span className="text-slate-600">1-Putt Holes</span>
-            <input
-              type="number"
-              value={onePutts}
-              min={0}
-              max={holes}
-              onChange={(event) => setOnePutts(Number(event.target.value))}
-              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
-            />
-          </label>
-          <label className="min-w-0 text-sm">
-            <span className="text-slate-600">3-Putt Holes</span>
-            <input
-              type="number"
-              value={threePutts}
-              min={0}
-              max={holes}
-              onChange={(event) => setThreePutts(Number(event.target.value))}
-              className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
-            />
           </label>
         </div>
 
@@ -190,43 +210,117 @@ export function RoundEntryForm({
         </label>
 
         <div className="mt-4 rounded-xl bg-slate-50 p-3">
-          <p className="text-sm font-semibold text-slate-800">Wedge Shot Log (for analytics)</p>
-          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <input
-              type="number"
-              min={1}
-              value={wedgeDistance}
-              onChange={(event) => setWedgeDistance(Number(event.target.value))}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              placeholder={`Distance (${distanceUnitLabel(distanceUnit)})`}
-            />
-            <input
-              type="number"
-              min={0}
-              value={wedgeProximity}
-              onChange={(event) => setWedgeProximity(Number(event.target.value))}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              placeholder="Leave (ft)"
-            />
+          <p className="text-sm font-semibold text-slate-800">
+            Hole-by-hole scorecard (add putts and optional wedge shot per hole)
+          </p>
+          <div className="mt-2 overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="text-left text-slate-500">
+                <tr>
+                  <th className="px-2 py-2">Hole</th>
+                  <th className="px-2 py-2">Par</th>
+                  <th className="px-2 py-2">Strokes</th>
+                  <th className="px-2 py-2">Putts</th>
+                  <th className="px-2 py-2">Wedge ({distanceUnitLabel(distanceUnit)})</th>
+                  <th className="px-2 py-2">Wedge leave (ft)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {holeDrafts.map((hole) => (
+                  <tr key={hole.holeNumber} className="border-t border-slate-200">
+                    <td className="px-2 py-2 font-semibold text-slate-800">{hole.holeNumber}</td>
+                    <td className="px-2 py-2">
+                      <input
+                        type="number"
+                        min={2}
+                        max={7}
+                        value={hole.par}
+                        onChange={(event) =>
+                          updateHoleDraft(hole.holeNumber, "par", Number(event.target.value))
+                        }
+                        className="w-20 rounded-lg border border-slate-300 px-2 py-1"
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <input
+                        type="number"
+                        min={1}
+                        max={20}
+                        value={hole.strokes}
+                        onChange={(event) =>
+                          updateHoleDraft(hole.holeNumber, "strokes", Number(event.target.value))
+                        }
+                        className="w-20 rounded-lg border border-slate-300 px-2 py-1"
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <input
+                        type="number"
+                        min={0}
+                        max={10}
+                        value={hole.putts}
+                        onChange={(event) =>
+                          updateHoleDraft(hole.holeNumber, "putts", Number(event.target.value))
+                        }
+                        className="w-20 rounded-lg border border-slate-300 px-2 py-1"
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <input
+                        type="number"
+                        min={1}
+                        max={220}
+                        value={hole.wedgeDistance}
+                        onChange={(event) =>
+                          updateHoleDraft(
+                            hole.holeNumber,
+                            "wedgeDistance",
+                            event.target.value === "" ? "" : Number(event.target.value),
+                          )
+                        }
+                        className="w-24 rounded-lg border border-slate-300 px-2 py-1"
+                        placeholder="-"
+                      />
+                    </td>
+                    <td className="px-2 py-2">
+                      <input
+                        type="number"
+                        min={0}
+                        max={200}
+                        value={hole.wedgeProximity}
+                        onChange={(event) =>
+                          updateHoleDraft(
+                            hole.holeNumber,
+                            "wedgeProximity",
+                            event.target.value === "" ? "" : Number(event.target.value),
+                          )
+                        }
+                        className="w-24 rounded-lg border border-slate-300 px-2 py-1"
+                        placeholder="-"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <button
-            type="button"
-            onClick={addWedgeShot}
-            className="mt-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white"
-          >
-            Add wedge shot
-          </button>
-
-          {wedgeShots.length > 0 && (
-            <ul className="mt-2 space-y-1 text-xs text-slate-700">
-              {wedgeShots.map((shot) => (
-                <li key={shot.id}>
-                  {yardsToDisplayDistance(shot.distanceYards, distanceUnit).toFixed(1)}{" "}
-                  {distanceUnitLabel(distanceUnit)} {"->"} {shot.proximityFeet} ft
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-700 sm:grid-cols-5">
+            <div className="rounded-lg bg-white px-2 py-2 ring-1 ring-slate-200">
+              Total Par: <span className="font-semibold">{summary.totalPar}</span>
+            </div>
+            <div className="rounded-lg bg-white px-2 py-2 ring-1 ring-slate-200">
+              Score: <span className="font-semibold">{summary.totalScore}</span>
+            </div>
+            <div className="rounded-lg bg-white px-2 py-2 ring-1 ring-slate-200">
+              Putts: <span className="font-semibold">{summary.totalPutts}</span>
+            </div>
+            <div className="rounded-lg bg-white px-2 py-2 ring-1 ring-slate-200">
+              1-putts: <span className="font-semibold">{summary.onePutts}</span>
+            </div>
+            <div className="rounded-lg bg-white px-2 py-2 ring-1 ring-slate-200">
+              3+ putts: <span className="font-semibold">{summary.threePutts}</span>
+            </div>
+          </div>
         </div>
 
         {validationError && <p className="mt-3 text-sm text-rose-600">{validationError}</p>}
@@ -259,7 +353,7 @@ export function RoundEntryForm({
                       {round.totalScore - round.par})
                     </p>
                     <p className="text-xs text-slate-500">
-                      {round.date} · {round.holes} holes · {round.putts} putts
+                      {round.date} · {round.holes} holes · {round.putts} putts · {round.wedgeShots.length} wedges
                     </p>
                   </div>
                   <button
