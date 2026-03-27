@@ -41,6 +41,96 @@ const CLUB_SMASH_FACTOR: Partial<Record<ClubName, number>> = {
   LW: 1.18,
 };
 
+const CLUB_TRAVEL_METERS_DEFAULT: Partial<Record<ClubName, number>> = {
+  Driver: 2.7,
+  "3W": 2.55,
+  "5W": 2.45,
+  "3H": 2.35,
+  "4H": 2.3,
+  "5H": 2.25,
+  "4I": 2.2,
+  "5I": 2.15,
+  "6I": 2.1,
+  "7I": 2.05,
+  "8I": 1.95,
+  "9I": 1.85,
+  PW: 1.75,
+  "50W": 1.7,
+  "52W": 1.68,
+  "54W": 1.66,
+  "56W": 1.62,
+  "58W": 1.58,
+  "60W": 1.55,
+  GW: 1.66,
+  SW: 1.62,
+  LW: 1.55,
+};
+
+const CLUB_LAUNCH_ANGLE_DEFAULT: Partial<Record<ClubName, number>> = {
+  Driver: 11,
+  "3W": 12,
+  "5W": 13,
+  "3H": 14,
+  "4H": 15,
+  "5H": 16,
+  "4I": 16,
+  "5I": 17,
+  "6I": 18,
+  "7I": 19,
+  "8I": 21,
+  "9I": 23,
+  PW: 27,
+  "50W": 31,
+  "52W": 33,
+  "54W": 35,
+  "56W": 37,
+  "58W": 39,
+  "60W": 41,
+  GW: 33,
+  SW: 37,
+  LW: 41,
+};
+
+type SwingDetection = {
+  durationMs: number;
+  confidence: number;
+};
+
+function detectSwingFromMotion(
+  samples: Array<{ t: number; score: number }>,
+): SwingDetection | null {
+  if (samples.length < 12) return null;
+
+  const scores = samples.map((sample) => sample.score);
+  const sorted = [...scores].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length * 0.5)] ?? 0;
+  const peak = Math.max(...scores);
+  const dynamic = peak - median;
+
+  if (dynamic < 1.6) return null;
+
+  const peakIndex = scores.findIndex((score) => score === peak);
+  if (peakIndex < 0) return null;
+
+  const highThreshold = median + dynamic * 0.7;
+  let fastStart = peakIndex;
+  let fastEnd = peakIndex;
+
+  while (fastStart > 0 && scores[fastStart - 1] >= highThreshold) {
+    fastStart -= 1;
+  }
+  while (fastEnd < scores.length - 1 && scores[fastEnd + 1] >= highThreshold) {
+    fastEnd += 1;
+  }
+
+  const rawDuration = samples[fastEnd].t - samples[fastStart].t;
+  const durationMs = Math.min(450, Math.max(45, rawDuration));
+  const dynamicRatio = dynamic / Math.max(0.5, median + 0.5);
+  const confidence = Math.min(0.98, Math.max(0.2, dynamicRatio / 8));
+
+  return { durationMs, confidence };
+}
+
 function estimateCarryMeters(ballSpeedMps: number, launchAngleDeg: number) {
   const g = 9.81;
   const angle = (launchAngleDeg * Math.PI) / 180;
@@ -59,6 +149,7 @@ export function TrainingCamera({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fallbackInputRef = useRef<HTMLInputElement | null>(null);
+  const analysisCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [date, setDate] = useState(todayIsoDate());
   const [club, setClub] = useState<ClubName>("7I");
   const [clubTravelDistance, setClubTravelDistance] = useState(
@@ -71,6 +162,10 @@ export function TrainingCamera({
   const [cameraOn, setCameraOn] = useState(false);
   const [fallbackVideoUrl, setFallbackVideoUrl] = useState<string | null>(null);
   const [fallbackVideoName, setFallbackVideoName] = useState<string | null>(null);
+  const [analysisState, setAnalysisState] = useState<
+    "idle" | "analyzing" | "done" | "error"
+  >("idle");
+  const [analysisConfidence, setAnalysisConfidence] = useState<number | null>(null);
 
   const computed = useMemo(() => {
     const travelMeters =
@@ -124,6 +219,7 @@ export function TrainingCamera({
 
     try {
       setCameraError(null);
+      setAnalysisState("idle");
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "environment",
@@ -154,6 +250,107 @@ export function TrainingCamera({
       );
       setCameraOn(false);
     }
+  };
+
+  const analyzeSwingAutomatically = async () => {
+    if (!videoRef.current) {
+      setCameraError("No camera/video source available to analyze.");
+      setAnalysisState("error");
+      return;
+    }
+
+    const video = videoRef.current;
+    if (video.readyState < 2) {
+      setCameraError("Video stream is not ready yet. Start camera and try again.");
+      setAnalysisState("error");
+      return;
+    }
+
+    const width = 192;
+    const height = 108;
+    if (!analysisCanvasRef.current) {
+      analysisCanvasRef.current = document.createElement("canvas");
+      analysisCanvasRef.current.width = width;
+      analysisCanvasRef.current.height = height;
+    }
+
+    const canvas = analysisCanvasRef.current;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) {
+      setCameraError("Unable to initialize video analysis canvas.");
+      setAnalysisState("error");
+      return;
+    }
+
+    setCameraError(null);
+    setAnalysisState("analyzing");
+    setAnalysisConfidence(null);
+
+    if (fallbackVideoUrl) {
+      video.currentTime = 0;
+      try {
+        await video.play();
+      } catch {
+        // User may need to press play manually; proceed with current frame feed.
+      }
+    }
+
+    const maxAnalyzeMs = fallbackVideoUrl ? 4500 : 2800;
+    const startTime = performance.now();
+    let previousLuma: Uint8Array | null = null;
+    const motionSeries: Array<{ t: number; score: number }> = [];
+
+    while (performance.now() - startTime < maxAnalyzeMs) {
+      if (video.readyState >= 2) {
+        context.drawImage(video, 0, 0, width, height);
+        const image = context.getImageData(0, 0, width, height).data;
+        const currentLuma = new Uint8Array(width * height);
+
+        for (let pixel = 0, rgba = 0; pixel < currentLuma.length; pixel += 1, rgba += 4) {
+          const r = image[rgba];
+          const g = image[rgba + 1];
+          const b = image[rgba + 2];
+          currentLuma[pixel] = (r * 77 + g * 150 + b * 29) >> 8;
+        }
+
+        if (previousLuma) {
+          let diffSum = 0;
+          for (let i = 0; i < currentLuma.length; i += 1) {
+            diffSum += Math.abs(currentLuma[i] - previousLuma[i]);
+          }
+          const normalizedScore = diffSum / currentLuma.length;
+          motionSeries.push({ t: performance.now() - startTime, score: normalizedScore });
+        }
+
+        previousLuma = currentLuma;
+      }
+
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => resolve());
+      });
+    }
+
+    const detection = detectSwingFromMotion(motionSeries);
+    if (!detection) {
+      setAnalysisState("error");
+      setCameraError(
+        "Could not detect a full swing automatically. Keep full body and club in frame, then try again.",
+      );
+      return;
+    }
+
+    const clubTravelMeters = CLUB_TRAVEL_METERS_DEFAULT[club] ?? 2.05;
+    const defaultLaunchAngle = CLUB_LAUNCH_ANGLE_DEFAULT[club] ?? 18;
+    const displayTravelDistance =
+      distanceUnit === "meters"
+        ? clubTravelMeters
+        : yardsToDisplayDistance(clubTravelMeters / 0.9144, "yards");
+
+    setClubTravelDistance(Number(displayTravelDistance.toFixed(2)));
+    setSwingDurationMs(Math.round(detection.durationMs));
+    setLaunchAngleDeg(defaultLaunchAngle);
+    setAnalysisConfidence(detection.confidence);
+    setAnalysisState("done");
   };
 
   const onFallbackVideoCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -275,6 +472,32 @@ export function TrainingCamera({
             Loaded fallback capture: <span className="font-semibold">{fallbackVideoName}</span>
           </p>
         )}
+
+        <div className="mt-3 rounded-xl bg-slate-50 p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                void analyzeSwingAutomatically();
+              }}
+              disabled={analysisState === "analyzing"}
+              className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {analysisState === "analyzing"
+                ? "Analyzing swing..."
+                : "Auto analyze swing"}
+            </button>
+            {analysisState === "done" && analysisConfidence !== null && (
+              <p className="text-xs text-emerald-700">
+                Detection confidence: {(analysisConfidence * 100).toFixed(0)}%
+              </p>
+            )}
+          </div>
+          <p className="mt-2 text-xs text-slate-600">
+            Auto analysis detects motion timing from the camera feed and fills swing inputs
+            automatically.
+          </p>
+        </div>
       </article>
 
       <article className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
