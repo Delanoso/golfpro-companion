@@ -20,7 +20,7 @@ type HoleScoreDraft = {
   strokes: number | "";
   putts: number | "";
   wedgeDistance: number | "";
-  wedgeProximity: number | "";
+  wedgeMiss: WedgeShot["miss"] | "";
 };
 
 function createHoleDraft(holeNumber: number): HoleScoreDraft {
@@ -30,7 +30,7 @@ function createHoleDraft(holeNumber: number): HoleScoreDraft {
     strokes: "",
     putts: "",
     wedgeDistance: "",
-    wedgeProximity: "",
+    wedgeMiss: "",
   };
 }
 
@@ -109,9 +109,9 @@ export function RoundEntryForm({
       }
 
       const hasWedgeDistance = hole.wedgeDistance !== "";
-      const hasWedgeProximity = hole.wedgeProximity !== "";
-      if (hasWedgeDistance !== hasWedgeProximity) {
-        return `Hole ${hole.holeNumber}: add both wedge distance and leave, or leave both empty.`;
+      const hasWedgeMiss = hole.wedgeMiss !== "";
+      if (hasWedgeDistance !== hasWedgeMiss) {
+        return `Hole ${hole.holeNumber}: add both wedge distance and wedge miss, or leave both empty.`;
       }
     }
     return null;
@@ -120,7 +120,7 @@ export function RoundEntryForm({
   const updateHoleDraft = (
     holeNumber: number,
     field: keyof Omit<HoleScoreDraft, "holeNumber">,
-    value: number | "",
+    value: number | "" | WedgeShot["miss"],
   ) => {
     setHoleDrafts((current) =>
       current.map((draft) => {
@@ -143,20 +143,19 @@ export function RoundEntryForm({
         hole.wedgeDistance === ""
           ? undefined
           : clamp(displayDistanceToYards(hole.wedgeDistance, distanceUnit), 1, 220),
-      wedgeProximityFeet:
-        hole.wedgeProximity === "" ? undefined : clamp(hole.wedgeProximity, 0, 200),
+      wedgeMiss: hole.wedgeMiss === "" ? undefined : hole.wedgeMiss,
     }));
 
     const wedgeShots: WedgeShot[] = holeScores
       .filter(
         (hole) =>
-          typeof hole.wedgeDistanceYards === "number" && typeof hole.wedgeProximityFeet === "number",
+          typeof hole.wedgeDistanceYards === "number" && typeof hole.wedgeMiss === "string",
       )
       .map((hole) => ({
         id: createId(),
         hole: hole.holeNumber,
         distanceYards: hole.wedgeDistanceYards as number,
-        proximityFeet: hole.wedgeProximityFeet as number,
+        miss: hole.wedgeMiss as WedgeShot["miss"],
       }));
 
     onAddRound({
@@ -248,7 +247,7 @@ export function RoundEntryForm({
                     <th className="px-2 py-2">Strokes</th>
                     <th className="px-2 py-2">Putts</th>
                     <th className="px-2 py-2">Wedge ({distanceUnitLabel(distanceUnit)})</th>
-                    <th className="px-2 py-2">Wedge leave (ft)</th>
+                    <th className="px-2 py-2">Wedge miss</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -324,21 +323,23 @@ export function RoundEntryForm({
                         />
                       </td>
                       <td className="px-2 py-2">
-                        <input
-                          type="number"
-                          min={0}
-                          max={200}
-                          value={hole.wedgeProximity}
+                        <select
+                          value={hole.wedgeMiss}
                           onChange={(event) =>
                             updateHoleDraft(
                               hole.holeNumber,
-                              "wedgeProximity",
-                              event.target.value === "" ? "" : Number(event.target.value),
+                              "wedgeMiss",
+                              event.target.value === "" ? "" : (event.target.value as WedgeShot["miss"]),
                             )
                           }
-                          className="w-24 rounded-lg border border-slate-300 px-2 py-1"
-                          placeholder="-"
-                        />
+                          className="w-32 rounded-lg border border-slate-300 px-2 py-1"
+                        >
+                          <option value="">-</option>
+                          <option value="left">Miss left</option>
+                          <option value="right">Miss right</option>
+                          <option value="over">Over</option>
+                          <option value="short">Short</option>
+                        </select>
                       </td>
                     </tr>
                   ))}

@@ -6,7 +6,7 @@ export type WedgeShot = {
   id: string;
   hole?: number;
   distanceYards: number;
-  proximityFeet: number;
+  miss: "left" | "right" | "over" | "short";
 };
 
 export type HoleScore = {
@@ -15,7 +15,7 @@ export type HoleScore = {
   strokes: number;
   putts: number;
   wedgeDistanceYards?: number;
-  wedgeProximityFeet?: number;
+  wedgeMiss?: WedgeShot["miss"];
 };
 
 export type RoundEntry = {

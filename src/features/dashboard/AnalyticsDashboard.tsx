@@ -62,9 +62,11 @@ export function AnalyticsDashboard({ data, distanceUnit }: AnalyticsDashboardPro
                 <p className="text-slate-500">{bucket.samples} shots</p>
               </div>
               <p className="mt-1 text-sm text-slate-700">
-                Avg leave distance:{" "}
+                Miss pattern:{" "}
                 <span className="font-semibold">
-                  {bucket.samples ? `${bucket.averageProximity.toFixed(1)} ft` : "--"}
+                  {bucket.samples
+                    ? `L ${bucket.missLeftRate.toFixed(0)}% · R ${bucket.missRightRate.toFixed(0)}% · O ${bucket.missOverRate.toFixed(0)}% · S ${bucket.missShortRate.toFixed(0)}%`
+                    : "--"}
                 </span>
               </p>
             </div>

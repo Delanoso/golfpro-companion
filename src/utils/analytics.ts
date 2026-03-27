@@ -19,7 +19,10 @@ type WedgeBucket = {
   minYards: number;
   maxYards: number;
   samples: number;
-  averageProximity: number;
+  missLeftRate: number;
+  missRightRate: number;
+  missOverRate: number;
+  missShortRate: number;
 };
 
 type ScoreSummary = {
@@ -81,10 +84,15 @@ export function getWedgeBuckets(rounds: RoundEntry[]): WedgeBucket[] {
       (wedge) =>
         wedge.distanceYards >= range.minYards && wedge.distanceYards <= range.maxYards,
     );
+    const missCount = (miss: WedgeShot["miss"]) =>
+      inRange.filter((wedge) => wedge.miss === miss).length;
     return {
       ...range,
       samples: inRange.length,
-      averageProximity: average(inRange.map((wedge) => wedge.proximityFeet)),
+      missLeftRate: inRange.length === 0 ? 0 : (missCount("left") / inRange.length) * 100,
+      missRightRate: inRange.length === 0 ? 0 : (missCount("right") / inRange.length) * 100,
+      missOverRate: inRange.length === 0 ? 0 : (missCount("over") / inRange.length) * 100,
+      missShortRate: inRange.length === 0 ? 0 : (missCount("short") / inRange.length) * 100,
     };
   });
 }
@@ -93,10 +101,15 @@ export function estimateWedgeStrokesLost(rounds: RoundEntry[]) {
   const wedges: WedgeShot[] = rounds.flatMap((round) => round.wedgeShots);
   if (wedges.length === 0) return 0;
 
-  // Rough heuristic: every 12 ft over 18 ft average proximity costs ~0.5 strokes over sample set.
-  const averageProximity = average(wedges.map((shot) => shot.proximityFeet));
-  const overTarget = Math.max(0, averageProximity - 18);
-  return (overTarget / 12) * 0.5 * (wedges.length / 10);
+  // Rough heuristic: directional misses imply a weaker wedge outcome profile.
+  const missPenaltyMap: Record<WedgeShot["miss"], number> = {
+    short: 0.7,
+    over: 0.6,
+    left: 0.5,
+    right: 0.5,
+  };
+  const totalPenalty = wedges.reduce((sum, shot) => sum + missPenaltyMap[shot.miss], 0);
+  return (totalPenalty / wedges.length) * (wedges.length / 10);
 }
 
 export function getClubDistanceStats(shots: ClubShot[]): ClubStat[] {
@@ -173,7 +186,7 @@ export function getBiggestLeak(rounds: RoundEntry[]) {
   }
 
   return {
-    area: "Wedge proximity",
-    message: `Estimated ${wedgeLeak.toFixed(1)} strokes lost from wedge leave distances.`,
+    area: "Wedge control",
+    message: `Estimated ${wedgeLeak.toFixed(1)} strokes lost from wedge miss patterns.`,
   };
 }
