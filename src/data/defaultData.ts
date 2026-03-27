@@ -31,6 +31,7 @@ export const initialAppData: AppData = {
   bettingGames: [],
   leagueRounds: [],
   trainingSessions: [],
+  rangeFinderLogs: [],
   leagueSettings: {
     players: ["You", "Friend 1", "Friend 2", "Friend 3"],
     winnerPoints: 5,

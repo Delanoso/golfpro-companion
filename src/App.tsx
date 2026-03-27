@@ -7,6 +7,7 @@ import { BettingGameTracker } from "./features/betting/BettingGameTracker";
 import { ClubDistanceTracker } from "./features/clubs/ClubDistanceTracker";
 import { AnalyticsDashboard } from "./features/dashboard/AnalyticsDashboard";
 import { LeagueManager } from "./features/league/LeagueManager";
+import { RangeFinderV2 } from "./features/range-finder/RangeFinderV2";
 import { RoundEntryForm } from "./features/rounds/RoundEntryForm";
 import { SmartCaddy } from "./features/strategy/SmartCaddy";
 import { TrainingCamera } from "./features/training/TrainingCamera";
@@ -31,6 +32,7 @@ function normalizeAppData(data: AppData): AppData {
     ...initialAppData,
     ...data,
     trainingSessions: data.trainingSessions ?? [],
+    rangeFinderLogs: data.rangeFinderLogs ?? [],
     leagueSettings: {
       ...initialAppData.leagueSettings,
       ...data.leagueSettings,
@@ -129,6 +131,20 @@ function App({ currentUser, onSignOut }: AppProps) {
     updateData((current) => ({
       ...current,
       trainingSessions: current.trainingSessions.filter((session) => session.id !== id),
+    }));
+  };
+
+  const addRangeFinderLog = (log: AppData["rangeFinderLogs"][number]) => {
+    updateData((current) => ({
+      ...current,
+      rangeFinderLogs: [...current.rangeFinderLogs, log],
+    }));
+  };
+
+  const deleteRangeFinderLog = (id: string) => {
+    updateData((current) => ({
+      ...current,
+      rangeFinderLogs: current.rangeFinderLogs.filter((log) => log.id !== id),
     }));
   };
 
@@ -250,6 +266,16 @@ function App({ currentUser, onSignOut }: AppProps) {
               sessions={appData.trainingSessions}
               onAddSession={addTrainingSession}
               onDeleteSession={deleteTrainingSession}
+            />
+          )}
+
+          {activeSection === "range-finder" && (
+            <RangeFinderV2
+              distanceUnit={distanceUnit}
+              clubShots={appData.clubShots}
+              logs={appData.rangeFinderLogs}
+              onAddLog={addRangeFinderLog}
+              onDeleteLog={deleteRangeFinderLog}
             />
           )}
         </section>

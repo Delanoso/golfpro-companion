@@ -1,6 +1,6 @@
 export type HoleCount = 9 | 18;
 export type DistanceUnit = "meters" | "yards";
-export type AppSection = "golf-strategy" | "training";
+export type AppSection = "golf-strategy" | "training" | "range-finder";
 
 export type WedgeShot = {
   id: string;
@@ -100,6 +100,7 @@ export type AppData = {
   leagueRounds: LeagueRound[];
   leagueSettings: LeagueSettings;
   trainingSessions: TrainingSession[];
+  rangeFinderLogs: RangeFinderLog[];
 };
 
 export type TrainingSession = {
@@ -116,4 +117,14 @@ export type TrainingSession = {
   estimatedCarryMeters: number;
   estimatedTotalMeters: number;
   notes?: string;
+};
+
+export type RangeFinderLog = {
+  id: string;
+  date: string;
+  targetLabel: string;
+  estimatedDistanceMeters: number;
+  confidence: number;
+  detectedClass: string;
+  recommendedClub?: ClubName;
 };
