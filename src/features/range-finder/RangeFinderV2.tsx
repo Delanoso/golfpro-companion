@@ -16,6 +16,13 @@ type RangeFinderV2Props = {
 };
 
 type DetectorStatus = "idle" | "loading" | "ready" | "error";
+type TargetMode = "auto-detect" | "manual-size";
+type DetectionCandidate = {
+  id: string;
+  className: string;
+  score: number;
+  bbox: [number, number, number, number];
+};
 
 const FLAGSTICK_HEIGHT_M = 2.13;
 
@@ -41,8 +48,12 @@ export function RangeFinderV2({
   const [fallbackVideoUrl, setFallbackVideoUrl] = useState<string | null>(null);
   const [fallbackVideoName, setFallbackVideoName] = useState<string | null>(null);
   const [targetLabel, setTargetLabel] = useState("Flag / Pin");
+  const [targetMode, setTargetMode] = useState<TargetMode>("auto-detect");
   const [flagHeightMeters, setFlagHeightMeters] = useState(FLAGSTICK_HEIGHT_M);
   const [focalLengthPx, setFocalLengthPx] = useState(1150);
+  const [manualTargetHeightPx, setManualTargetHeightPx] = useState(120);
+  const [detectionCandidates, setDetectionCandidates] = useState<DetectionCandidate[]>([]);
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [distanceMeters, setDistanceMeters] = useState<number | null>(null);
   const [confidence, setConfidence] = useState<number | null>(null);
   const [detectedClass, setDetectedClass] = useState<string | null>(null);
@@ -62,6 +73,23 @@ export function RangeFinderV2({
       }))
       .sort((a, b) => a.gap - b.gap)[0];
     return closest?.club ?? null;
+  };
+
+  const applyDistanceEstimate = (
+    bboxHeightPx: number,
+    score: number,
+    className: string,
+    confidenceFloor = 0.2,
+  ) => {
+    const estimatedMeters = (flagHeightMeters * focalLengthPx) / Math.max(1, bboxHeightPx);
+    const clampedMeters = Math.min(420, Math.max(5, estimatedMeters));
+    const confidenceValue = Math.min(0.99, Math.max(confidenceFloor, score));
+    const club = suggestClub(metersToYards(clampedMeters));
+
+    setDetectedClass(className);
+    setDistanceMeters(clampedMeters);
+    setConfidence(confidenceValue);
+    setRecommendedClub(club);
   };
 
   const ensureDetector = async () => {
@@ -198,35 +226,44 @@ export function RangeFinderV2({
 
     try {
       const predictions = await detector.detect(video, 20);
-
-      // Prefer objects that can represent a near-pin target in v2 prototype.
       const candidates = predictions
-        .filter((prediction) =>
-          ["person", "sports ball", "bottle", "backpack", "chair", "bird"].includes(
-            prediction.class,
-          ),
-        )
-        .sort((a, b) => b.score - a.score);
+        .filter((prediction) => prediction.score >= 0.2)
+        .sort((a, b) => b.score - a.score)
+        .map((prediction, index) => ({
+          id: `${prediction.class}-${index}-${Math.round(prediction.score * 1000)}`,
+          className: prediction.class,
+          score: prediction.score,
+          bbox: [
+            prediction.bbox[0],
+            prediction.bbox[1],
+            prediction.bbox[2],
+            prediction.bbox[3],
+          ] as [number, number, number, number],
+        }));
 
-      const best = candidates[0] ?? predictions.sort((a, b) => b.score - a.score)[0];
-      if (!best) {
-        setAnalysisError(
-          "No object detected. Point camera at flag/target and keep it centered.",
-        );
-        setAnalyzing(false);
+      setDetectionCandidates(candidates);
+
+      if (targetMode === "manual-size") {
+        setSelectedCandidateId(null);
+        applyDistanceEstimate(manualTargetHeightPx, 0.45, "manual-target", 0.35);
         return;
       }
 
-      const bboxHeightPx = Math.max(1, best.bbox[3]);
-      const estimatedMeters = (flagHeightMeters * focalLengthPx) / bboxHeightPx;
-      const clampedMeters = Math.min(420, Math.max(5, estimatedMeters));
-      const confidenceValue = Math.min(0.99, Math.max(0.2, best.score));
-      const club = suggestClub(metersToYards(clampedMeters));
+      const selectedCandidate =
+        candidates.find((candidate) => candidate.id === selectedCandidateId) ?? candidates[0];
+      if (!selectedCandidate) {
+        setAnalysisError(
+          "No object detected. Try Manual target mode and set target size, or move closer/steady camera.",
+        );
+        return;
+      }
 
-      setDetectedClass(best.class);
-      setDistanceMeters(clampedMeters);
-      setConfidence(confidenceValue);
-      setRecommendedClub(club);
+      setSelectedCandidateId(selectedCandidate.id);
+      applyDistanceEstimate(
+        selectedCandidate.bbox[3],
+        selectedCandidate.score,
+        selectedCandidate.className,
+      );
     } catch (error) {
       setAnalysisError(
         error instanceof Error ? error.message : "Range analysis failed.",
@@ -247,6 +284,14 @@ export function RangeFinderV2({
       detectedClass,
       recommendedClub: recommendedClub ?? undefined,
     });
+  };
+
+  const selectCandidateAsTarget = (candidateId: string) => {
+    setSelectedCandidateId(candidateId);
+    const candidate = detectionCandidates.find((item) => item.id === candidateId);
+    if (!candidate) return;
+    setAnalysisError(null);
+    applyDistanceEstimate(candidate.bbox[3], candidate.score, candidate.className);
   };
 
   return (
@@ -331,6 +376,17 @@ export function RangeFinderV2({
         <h3 className="text-base font-semibold text-slate-900">Calibration & Target</h3>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="text-sm">
+            <span className="text-slate-600">Target mode</span>
+            <select
+              value={targetMode}
+              onChange={(event) => setTargetMode(event.target.value as TargetMode)}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+            >
+              <option value="auto-detect">Auto detect + choose object</option>
+              <option value="manual-size">Manual target size (fallback)</option>
+            </select>
+          </label>
+          <label className="text-sm">
             <span className="text-slate-600">Target label</span>
             <input
               value={targetLabel}
@@ -357,6 +413,17 @@ export function RangeFinderV2({
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
+          <label className="text-sm">
+            <span className="text-slate-600">Manual target height in frame (px)</span>
+            <input
+              type="number"
+              min={10}
+              max={2000}
+              value={manualTargetHeightPx}
+              onChange={(event) => setManualTargetHeightPx(Number(event.target.value))}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+            />
+          </label>
           <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
             Detector status:{" "}
             <span className="font-semibold">
@@ -370,6 +437,10 @@ export function RangeFinderV2({
             </span>
           </div>
         </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Tip: If no objects are detected, switch to <span className="font-semibold">Manual target
+          size</span> and enter how tall the pin/target appears in the frame.
+        </p>
       </article>
 
       <article className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
@@ -400,6 +471,35 @@ export function RangeFinderV2({
           </div>
         ) : (
           <p className="mt-2 text-sm text-slate-600">Run Analyze range to detect target distance.</p>
+        )}
+      </article>
+
+      <article className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <h3 className="text-base font-semibold text-slate-900">Detected Objects (Choose Target)</h3>
+        {detectionCandidates.length === 0 ? (
+          <p className="mt-2 text-sm text-slate-600">
+            No detected objects yet. Tap Analyze range first.
+          </p>
+        ) : (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {detectionCandidates.slice(0, 12).map((candidate) => {
+              const isSelected = selectedCandidateId === candidate.id;
+              return (
+                <button
+                  key={candidate.id}
+                  type="button"
+                  onClick={() => selectCandidateAsTarget(candidate.id)}
+                  className={`rounded-lg px-3 py-2 text-xs font-semibold ${
+                    isSelected
+                      ? "bg-emerald-700 text-white"
+                      : "bg-slate-100 text-slate-700"
+                  }`}
+                >
+                  {candidate.className} ({Math.round(candidate.score * 100)}%)
+                </button>
+              );
+            })}
+          </div>
         )}
       </article>
 
