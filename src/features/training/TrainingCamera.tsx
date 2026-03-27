@@ -224,7 +224,12 @@ export function TrainingCamera({
         </p>
 
         <div className="mt-3 overflow-hidden rounded-xl bg-slate-900">
-          <video ref={videoRef} className="h-56 w-full object-cover" playsInline muted />
+          <video
+            ref={videoRef}
+            className="h-[22rem] w-full object-cover sm:h-[28rem]"
+            playsInline
+            muted
+          />
         </div>
 
         <div className="mt-3 flex gap-2">
