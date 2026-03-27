@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { clubOptions } from "../../data/defaultData";
 import type { ClubName, DistanceUnit, TrainingSession } from "../../types/app";
 import { createId, todayIsoDate } from "../../utils/helpers";
@@ -58,6 +58,7 @@ export function TrainingCamera({
 }: TrainingCameraProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const fallbackInputRef = useRef<HTMLInputElement | null>(null);
   const [date, setDate] = useState(todayIsoDate());
   const [club, setClub] = useState<ClubName>("7I");
   const [clubTravelDistance, setClubTravelDistance] = useState(
@@ -68,6 +69,8 @@ export function TrainingCamera({
   const [notes, setNotes] = useState("");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraOn, setCameraOn] = useState(false);
+  const [fallbackVideoUrl, setFallbackVideoUrl] = useState<string | null>(null);
+  const [fallbackVideoName, setFallbackVideoName] = useState<string | null>(null);
 
   const computed = useMemo(() => {
     const travelMeters =
@@ -93,6 +96,32 @@ export function TrainingCamera({
   }, [club, clubTravelDistance, distanceUnit, launchAngleDeg, swingDurationMs]);
 
   const startCamera = async () => {
+    const hasGetUserMedia =
+      typeof navigator !== "undefined" &&
+      typeof navigator.mediaDevices !== "undefined" &&
+      typeof navigator.mediaDevices.getUserMedia === "function";
+    const isSecureCameraContext =
+      typeof window !== "undefined" &&
+      (window.isSecureContext ||
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1");
+
+    if (!hasGetUserMedia) {
+      setCameraError(
+        "Live camera API is not available in this browser. Use Chrome/Safari or fallback capture below.",
+      );
+      setCameraOn(false);
+      return;
+    }
+
+    if (!isSecureCameraContext) {
+      setCameraError(
+        "Live camera requires HTTPS (or localhost). Open this app on a secure domain to use Start camera.",
+      );
+      setCameraOn(false);
+      return;
+    }
+
     try {
       setCameraError(null);
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -107,7 +136,13 @@ export function TrainingCamera({
 
       streamRef.current = stream;
       if (videoRef.current) {
+        if (fallbackVideoUrl) {
+          URL.revokeObjectURL(fallbackVideoUrl);
+          setFallbackVideoUrl(null);
+          setFallbackVideoName(null);
+        }
         videoRef.current.srcObject = stream;
+        videoRef.current.removeAttribute("src");
         await videoRef.current.play();
       }
       setCameraOn(true);
@@ -120,6 +155,32 @@ export function TrainingCamera({
       setCameraOn(false);
     }
   };
+
+  const onFallbackVideoCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (!selectedFile || !videoRef.current) return;
+
+    stopCamera();
+    if (fallbackVideoUrl) {
+      URL.revokeObjectURL(fallbackVideoUrl);
+    }
+    const objectUrl = URL.createObjectURL(selectedFile);
+    setFallbackVideoUrl(objectUrl);
+    setFallbackVideoName(selectedFile.name);
+    videoRef.current.srcObject = null;
+    videoRef.current.src = objectUrl;
+    void videoRef.current.play().catch(() => {
+      // Silent fallback if autoplay is blocked; user can press play.
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      if (fallbackVideoUrl) {
+        URL.revokeObjectURL(fallbackVideoUrl);
+      }
+    };
+  }, [fallbackVideoUrl]);
 
   const stopCamera = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -168,13 +229,30 @@ export function TrainingCamera({
 
         <div className="mt-3 flex gap-2">
           {!cameraOn ? (
-            <button
-              type="button"
-              onClick={startCamera}
-              className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white"
-            >
-              Start camera
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={startCamera}
+                className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white"
+              >
+                Start camera
+              </button>
+              <button
+                type="button"
+                onClick={() => fallbackInputRef.current?.click()}
+                className="rounded-lg bg-slate-700 px-3 py-2 text-sm font-semibold text-white"
+              >
+                Capture fallback video
+              </button>
+              <input
+                ref={fallbackInputRef}
+                type="file"
+                accept="video/*"
+                capture="environment"
+                onChange={onFallbackVideoCapture}
+                className="hidden"
+              />
+            </>
           ) : (
             <button
               type="button"
@@ -187,6 +265,11 @@ export function TrainingCamera({
         </div>
 
         {cameraError && <p className="mt-2 text-sm text-rose-600">{cameraError}</p>}
+        {fallbackVideoName && (
+          <p className="mt-2 text-xs text-slate-600">
+            Loaded fallback capture: <span className="font-semibold">{fallbackVideoName}</span>
+          </p>
+        )}
       </article>
 
       <article className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
