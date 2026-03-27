@@ -16,6 +16,10 @@ export type HoleScore = {
   putts: number;
   wedgeDistanceYards?: number;
   wedgeMiss?: WedgeShot["miss"];
+  wedgeShots?: Array<{
+    distanceYards: number;
+    miss: WedgeShot["miss"];
+  }>;
 };
 
 export type RoundEntry = {

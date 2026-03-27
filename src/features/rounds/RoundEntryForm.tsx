@@ -21,6 +21,9 @@ type HoleScoreDraft = {
   putts: number | "";
   wedgeDistance: number | "";
   wedgeMiss: WedgeShot["miss"] | "";
+  wedge2Enabled: boolean;
+  wedge2Distance: number | "";
+  wedge2Miss: WedgeShot["miss"] | "";
 };
 
 function createHoleDraft(holeNumber: number): HoleScoreDraft {
@@ -31,6 +34,9 @@ function createHoleDraft(holeNumber: number): HoleScoreDraft {
     putts: "",
     wedgeDistance: "",
     wedgeMiss: "",
+    wedge2Enabled: false,
+    wedge2Distance: "",
+    wedge2Miss: "",
   };
 }
 
@@ -65,11 +71,24 @@ export function RoundEntryForm({
     if (previousUnit.current === distanceUnit) return;
     setHoleDrafts((current) =>
       current.map((draft) => {
-        if (draft.wedgeDistance === "") return draft;
-        const yards = displayDistanceToYards(draft.wedgeDistance, previousUnit.current);
+        const wedge1Yards =
+          draft.wedgeDistance === ""
+            ? ""
+            : yardsToDisplayDistance(
+                displayDistanceToYards(draft.wedgeDistance, previousUnit.current),
+                distanceUnit,
+              );
+        const wedge2Yards =
+          draft.wedge2Distance === ""
+            ? ""
+            : yardsToDisplayDistance(
+                displayDistanceToYards(draft.wedge2Distance, previousUnit.current),
+                distanceUnit,
+              );
         return {
           ...draft,
-          wedgeDistance: yardsToDisplayDistance(yards, distanceUnit),
+          wedgeDistance: wedge1Yards,
+          wedge2Distance: wedge2Yards,
         };
       }),
     );
@@ -113,6 +132,16 @@ export function RoundEntryForm({
       if (hasWedgeDistance !== hasWedgeMiss) {
         return `Hole ${hole.holeNumber}: add both wedge distance and wedge miss, or leave both empty.`;
       }
+      if (hole.wedge2Enabled) {
+        if (!hasWedgeDistance) {
+          return `Hole ${hole.holeNumber}: add first wedge shot before adding the second wedge shot.`;
+        }
+        const hasWedge2Distance = hole.wedge2Distance !== "";
+        const hasWedge2Miss = hole.wedge2Miss !== "";
+        if (hasWedge2Distance !== hasWedge2Miss) {
+          return `Hole ${hole.holeNumber}: add both second wedge distance and miss, or leave both empty.`;
+        }
+      }
     }
     return null;
   }, [holeDrafts]);
@@ -120,7 +149,7 @@ export function RoundEntryForm({
   const updateHoleDraft = (
     holeNumber: number,
     field: keyof Omit<HoleScoreDraft, "holeNumber">,
-    value: number | "" | WedgeShot["miss"],
+    value: number | "" | boolean | WedgeShot["miss"],
   ) => {
     setHoleDrafts((current) =>
       current.map((draft) => {
@@ -130,33 +159,67 @@ export function RoundEntryForm({
     );
   };
 
+  const enableSecondWedge = (holeNumber: number) => {
+    updateHoleDraft(holeNumber, "wedge2Enabled", true);
+  };
+
+  const removeSecondWedge = (holeNumber: number) => {
+    setHoleDrafts((current) =>
+      current.map((draft) => {
+        if (draft.holeNumber !== holeNumber) return draft;
+        return {
+          ...draft,
+          wedge2Enabled: false,
+          wedge2Distance: "",
+          wedge2Miss: "",
+        };
+      }),
+    );
+  };
+
   const submitRound = (event: React.FormEvent) => {
     event.preventDefault();
     if (validationError || holes === "") return;
 
-    const holeScores: HoleScore[] = holeDrafts.map((hole) => ({
-      holeNumber: hole.holeNumber,
-      par: clamp(Number(hole.par), 2, 7),
-      strokes: clamp(Number(hole.strokes), 1, 20),
-      putts: clamp(Number(hole.putts), 0, 10),
-      wedgeDistanceYards:
-        hole.wedgeDistance === ""
-          ? undefined
-          : clamp(displayDistanceToYards(hole.wedgeDistance, distanceUnit), 1, 220),
-      wedgeMiss: hole.wedgeMiss === "" ? undefined : hole.wedgeMiss,
-    }));
+    const holeScores: HoleScore[] = holeDrafts.map((hole) => {
+      const firstShot =
+        hole.wedgeDistance !== "" && hole.wedgeMiss !== ""
+          ? {
+              distanceYards: clamp(displayDistanceToYards(hole.wedgeDistance, distanceUnit), 1, 220),
+              miss: hole.wedgeMiss as WedgeShot["miss"],
+            }
+          : undefined;
+      const secondShot =
+        hole.wedge2Enabled && hole.wedge2Distance !== "" && hole.wedge2Miss !== ""
+          ? {
+              distanceYards: clamp(displayDistanceToYards(hole.wedge2Distance, distanceUnit), 1, 220),
+              miss: hole.wedge2Miss as WedgeShot["miss"],
+            }
+          : undefined;
 
-    const wedgeShots: WedgeShot[] = holeScores
-      .filter(
-        (hole) =>
-          typeof hole.wedgeDistanceYards === "number" && typeof hole.wedgeMiss === "string",
-      )
-      .map((hole) => ({
+      return {
+        holeNumber: hole.holeNumber,
+        par: clamp(Number(hole.par), 2, 7),
+        strokes: clamp(Number(hole.strokes), 1, 20),
+        putts: clamp(Number(hole.putts), 0, 10),
+        // Keep first-shot fields for backward compatibility.
+        wedgeDistanceYards: firstShot?.distanceYards,
+        wedgeMiss: firstShot?.miss,
+        wedgeShots: [firstShot, secondShot].filter(
+          (shot): shot is { distanceYards: number; miss: WedgeShot["miss"] } =>
+            typeof shot?.distanceYards === "number" && typeof shot?.miss === "string",
+        ),
+      };
+    });
+
+    const wedgeShots: WedgeShot[] = holeScores.flatMap((hole) =>
+      (hole.wedgeShots ?? []).map((shot) => ({
         id: createId(),
         hole: hole.holeNumber,
-        distanceYards: hole.wedgeDistanceYards as number,
-        miss: hole.wedgeMiss as WedgeShot["miss"],
-      }));
+        distanceYards: shot.distanceYards,
+        miss: shot.miss,
+      })),
+    );
 
     onAddRound({
       id: createId(),
@@ -233,7 +296,7 @@ export function RoundEntryForm({
 
         <div className="mt-4 rounded-xl bg-slate-50 p-3">
           <p className="text-sm font-semibold text-slate-800">
-            Hole-by-hole scorecard (add putts and optional wedge shot per hole)
+            Hole-by-hole scorecard (add putts and optional wedge shots per hole)
           </p>
           {holeDrafts.length === 0 ? (
             <p className="mt-2 text-xs text-slate-600">Select 9 or 18 holes to begin scorecard entry.</p>
@@ -306,41 +369,103 @@ export function RoundEntryForm({
                         />
                       </td>
                       <td className="px-2 py-2">
-                        <input
-                          type="number"
-                          min={1}
-                          max={220}
-                          value={hole.wedgeDistance}
-                          onChange={(event) =>
-                            updateHoleDraft(
-                              hole.holeNumber,
-                              "wedgeDistance",
-                              event.target.value === "" ? "" : Number(event.target.value),
-                            )
-                          }
-                          className="w-24 rounded-lg border border-slate-300 px-2 py-1"
-                          placeholder="-"
-                        />
+                        <div className="space-y-1">
+                          <input
+                            type="number"
+                            min={1}
+                            max={220}
+                            value={hole.wedgeDistance}
+                            onChange={(event) =>
+                              updateHoleDraft(
+                                hole.holeNumber,
+                                "wedgeDistance",
+                                event.target.value === "" ? "" : Number(event.target.value),
+                              )
+                            }
+                            className="w-24 rounded-lg border border-slate-300 px-2 py-1"
+                            placeholder="-"
+                          />
+                          {hole.wedge2Enabled && (
+                            <input
+                              type="number"
+                              min={1}
+                              max={220}
+                              value={hole.wedge2Distance}
+                              onChange={(event) =>
+                                updateHoleDraft(
+                                  hole.holeNumber,
+                                  "wedge2Distance",
+                                  event.target.value === "" ? "" : Number(event.target.value),
+                                )
+                              }
+                              className="w-24 rounded-lg border border-slate-300 px-2 py-1"
+                              placeholder="2nd"
+                            />
+                          )}
+                        </div>
                       </td>
                       <td className="px-2 py-2">
-                        <select
-                          value={hole.wedgeMiss}
-                          onChange={(event) =>
-                            updateHoleDraft(
-                              hole.holeNumber,
-                              "wedgeMiss",
-                              event.target.value === "" ? "" : (event.target.value as WedgeShot["miss"]),
-                            )
-                          }
-                          className="w-32 rounded-lg border border-slate-300 px-2 py-1"
-                        >
-                          <option value="">-</option>
-                          <option value="left">Miss left</option>
-                          <option value="right">Miss right</option>
-                          <option value="over">Over</option>
-                          <option value="short">Short</option>
-                          <option value="on-green">On green</option>
-                        </select>
+                        <div className="space-y-1">
+                          <select
+                            value={hole.wedgeMiss}
+                            onChange={(event) =>
+                              updateHoleDraft(
+                                hole.holeNumber,
+                                "wedgeMiss",
+                                event.target.value === ""
+                                  ? ""
+                                  : (event.target.value as WedgeShot["miss"]),
+                              )
+                            }
+                            className="w-32 rounded-lg border border-slate-300 px-2 py-1"
+                          >
+                            <option value="">-</option>
+                            <option value="left">Miss left</option>
+                            <option value="right">Miss right</option>
+                            <option value="over">Over</option>
+                            <option value="short">Short</option>
+                            <option value="on-green">On green</option>
+                          </select>
+                          {hole.wedge2Enabled && (
+                            <select
+                              value={hole.wedge2Miss}
+                              onChange={(event) =>
+                                updateHoleDraft(
+                                  hole.holeNumber,
+                                  "wedge2Miss",
+                                  event.target.value === ""
+                                    ? ""
+                                    : (event.target.value as WedgeShot["miss"]),
+                                )
+                              }
+                              className="w-32 rounded-lg border border-slate-300 px-2 py-1"
+                            >
+                              <option value="">-</option>
+                              <option value="left">Miss left</option>
+                              <option value="right">Miss right</option>
+                              <option value="over">Over</option>
+                              <option value="short">Short</option>
+                              <option value="on-green">On green</option>
+                            </select>
+                          )}
+                          {!hole.wedge2Enabled ? (
+                            <button
+                              type="button"
+                              onClick={() => enableSecondWedge(hole.holeNumber)}
+                              className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700"
+                            >
+                              + 2nd wedge
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => removeSecondWedge(hole.holeNumber)}
+                              className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700"
+                            >
+                              Remove 2nd
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
