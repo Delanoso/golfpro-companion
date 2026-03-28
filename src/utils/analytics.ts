@@ -194,7 +194,7 @@ export function getBiggestLeak(rounds: RoundEntry[]) {
   if (puttingLeak === 0 && wedgeLeak === 0) {
     return {
       area: "No clear data yet",
-      message: "Add more rounds, putts, and wedge outcomes to identify your biggest stroke leak.",
+      message: "Add more rounds, putts, and wedge shot outcomes to identify your biggest stroke leak.",
     };
   }
 
@@ -207,6 +207,6 @@ export function getBiggestLeak(rounds: RoundEntry[]) {
 
   return {
     area: "Wedge control",
-    message: `Estimated ${wedgeLeak.toFixed(1)} strokes lost from wedge miss patterns.`,
+    message: `Estimated ${wedgeLeak.toFixed(1)} strokes lost from wedge shot patterns.`,
   };
 }

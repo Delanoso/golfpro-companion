@@ -229,7 +229,7 @@ export function RoundEntryForm({
       const hasWedgeDistance = hole.wedgeDistance !== "";
       const hasWedgeMiss = hole.wedgeMiss !== "";
       if (hasWedgeDistance !== hasWedgeMiss) {
-        return `Hole ${hole.holeNumber}: add both wedge distance and wedge miss, or leave both empty.`;
+        return `Hole ${hole.holeNumber}: add both wedge distance and wedge shot, or leave both empty.`;
       }
       if (hole.wedge2Enabled) {
         if (!hasWedgeDistance) {
@@ -434,7 +434,7 @@ export function RoundEntryForm({
                     <th className="px-2 py-2">Putts</th>
                     <th className="px-2 py-2">GIR</th>
                     <th className="px-2 py-2">Wedge ({distanceUnitLabel(distanceUnit)})</th>
-                    <th className="px-2 py-2">Wedge miss</th>
+                    <th className="px-2 py-2">Wedge shot</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -77,7 +77,7 @@ export function AnalyticsDashboard({ data, distanceUnit }: AnalyticsDashboardPro
                 <p className="text-slate-500">{bucket.samples} shots</p>
               </div>
               <p className="mt-1 text-sm text-slate-700">
-                Miss pattern:{" "}
+                Wedge shot pattern:{" "}
                 <span className="font-semibold">
                   {bucket.samples
                     ? `L ${bucket.missLeftRate.toFixed(0)}% · R ${bucket.missRightRate.toFixed(0)}% · O ${bucket.missOverRate.toFixed(0)}% · S ${bucket.missShortRate.toFixed(0)}% · G ${bucket.onGreenRate.toFixed(0)}%`
