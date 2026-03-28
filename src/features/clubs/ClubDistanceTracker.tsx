@@ -50,6 +50,7 @@ export function ClubDistanceTracker({
   const submitShot = (event: React.FormEvent) => {
     event.preventDefault();
     if (validationError) return;
+    if (club === "" || shotShape === "" || distanceInput === "") return;
     onAddShot({
       id: createId(),
       date,
