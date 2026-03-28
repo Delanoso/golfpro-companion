@@ -37,6 +37,8 @@ function normalizeAppData(data: AppData): AppData {
 function App({ currentUser, onSignOut }: AppProps) {
   const [activeSection, setActiveSection] = useState<AppSection>("golf-strategy");
   const [activeTab, setActiveTab] = useState<AppTab>("dashboard");
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [data, setData] = useLocalStorageState<AppData>(
     `golfpro-companion-data-${currentUser.id}`,
     initialAppData,
@@ -104,6 +106,16 @@ function App({ currentUser, onSignOut }: AppProps) {
     setData(initialAppData);
   };
 
+  const requestResetAllData = () => {
+    setIsMenuOpen(false);
+    setIsResetConfirmOpen(true);
+  };
+
+  const confirmResetAllData = () => {
+    resetAllData();
+    setIsResetConfirmOpen(false);
+  };
+
   const displayName =
     (typeof currentUser.user_metadata?.display_name === "string" &&
       currentUser.user_metadata.display_name.trim()) ||
@@ -139,22 +151,36 @@ function App({ currentUser, onSignOut }: AppProps) {
                   <option value="yards">Yards</option>
                 </select>
               </label>
-              <button
-                type="button"
-                onClick={resetAllData}
-                className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700"
-              >
-                Reset data
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  void onSignOut();
-                }}
-                className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
-              >
-                Logout
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsMenuOpen((current) => !current)}
+                  className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
+                >
+                  Menu
+                </button>
+                {isMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-40 rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                    <button
+                      type="button"
+                      onClick={requestResetAllData}
+                      className="block w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                    >
+                      Reset data
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        void onSignOut();
+                      }}
+                      className="block w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </header>
@@ -206,6 +232,33 @@ function App({ currentUser, onSignOut }: AppProps) {
           )}
         </section>
       </main>
+
+      {isResetConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl">
+            <h2 className="text-base font-semibold text-slate-900">Reset all data?</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Are you sure you want to reset your saved data? This cannot be undone.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsResetConfirmOpen(false)}
+                className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmResetAllData}
+                className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white"
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
