@@ -9,9 +9,18 @@ import {
 
 type RoundEntryFormProps = {
   distanceUnit: DistanceUnit;
+  draftStorageKey: string;
   rounds: RoundEntry[];
   onAddRound: (round: RoundEntry) => void;
   onDeleteRound: (id: string) => void;
+};
+
+type RoundDraftSnapshot = {
+  date: string;
+  course: string;
+  holes: HoleCount | "";
+  notes: string;
+  holeDrafts: HoleScoreDraft[];
 };
 
 type HoleScoreDraft = {
@@ -52,6 +61,7 @@ function ensureHoleDrafts(count: HoleCount | "", existing: HoleScoreDraft[]): Ho
 
 export function RoundEntryForm({
   distanceUnit,
+  draftStorageKey,
   rounds,
   onAddRound,
   onDeleteRound,
@@ -61,11 +71,97 @@ export function RoundEntryForm({
   const [holes, setHoles] = useState<HoleCount | "">("");
   const [notes, setNotes] = useState("");
   const [holeDrafts, setHoleDrafts] = useState<HoleScoreDraft[]>([]);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [hasHydratedDraft, setHasHydratedDraft] = useState(false);
   const previousUnit = useRef<DistanceUnit>(distanceUnit);
+
+  useEffect(() => {
+    setHasHydratedDraft(false);
+    setDraftRestored(false);
+    setDate(todayIsoDate());
+    setCourse("");
+    setHoles("");
+    setNotes("");
+    setHoleDrafts([]);
+
+    try {
+      const rawDraft = localStorage.getItem(draftStorageKey);
+      if (!rawDraft) {
+        setHasHydratedDraft(true);
+        return;
+      }
+
+      const parsed = JSON.parse(rawDraft) as Partial<RoundDraftSnapshot>;
+      const parsedHoles =
+        parsed.holes === 9 || parsed.holes === 18 ? parsed.holes : "";
+      const parsedDrafts: HoleScoreDraft[] = Array.isArray(parsed.holeDrafts)
+        ? parsed.holeDrafts
+            .map((item) => {
+              if (!item || typeof item.holeNumber !== "number") return null;
+              return {
+                ...createHoleDraft(item.holeNumber),
+                ...item,
+                wedge2Enabled: Boolean(item.wedge2Enabled),
+              } as HoleScoreDraft;
+            })
+            .filter((item): item is HoleScoreDraft => item !== null)
+        : [];
+
+      setDate(
+        typeof parsed.date === "string" && parsed.date.length > 0
+          ? parsed.date
+          : todayIsoDate(),
+      );
+      setCourse(typeof parsed.course === "string" ? parsed.course : "");
+      setHoles(parsedHoles);
+      setNotes(typeof parsed.notes === "string" ? parsed.notes : "");
+      setHoleDrafts(ensureHoleDrafts(parsedHoles, parsedDrafts));
+      setDraftRestored(true);
+    } catch {
+      localStorage.removeItem(draftStorageKey);
+    } finally {
+      setHasHydratedDraft(true);
+    }
+  }, [draftStorageKey]);
 
   useEffect(() => {
     setHoleDrafts((current) => ensureHoleDrafts(holes, current));
   }, [holes]);
+
+  useEffect(() => {
+    if (!hasHydratedDraft) return;
+
+    const hasAnyHoleData = holeDrafts.some(
+      (hole) =>
+        hole.par !== "" ||
+        hole.strokes !== "" ||
+        hole.putts !== "" ||
+        hole.wedgeDistance !== "" ||
+        hole.wedgeMiss !== "" ||
+        hole.wedge2Enabled ||
+        hole.wedge2Distance !== "" ||
+        hole.wedge2Miss !== "",
+    );
+    const hasAnyData =
+      course.trim().length > 0 ||
+      holes !== "" ||
+      notes.trim().length > 0 ||
+      hasAnyHoleData;
+
+    if (!hasAnyData) {
+      localStorage.removeItem(draftStorageKey);
+      return;
+    }
+
+    const snapshot: RoundDraftSnapshot = {
+      date,
+      course,
+      holes,
+      notes,
+      holeDrafts,
+    };
+    localStorage.setItem(draftStorageKey, JSON.stringify(snapshot));
+  }, [course, date, draftStorageKey, hasHydratedDraft, holeDrafts, holes, notes]);
 
   useEffect(() => {
     if (previousUnit.current === distanceUnit) return;
@@ -177,6 +273,15 @@ export function RoundEntryForm({
     );
   };
 
+  const clearDraft = () => {
+    setCourse("");
+    setHoles("");
+    setNotes("");
+    setHoleDrafts([]);
+    setDraftRestored(false);
+    localStorage.removeItem(draftStorageKey);
+  };
+
   const submitRound = (event: React.FormEvent) => {
     event.preventDefault();
     if (validationError || holes === "") return;
@@ -240,12 +345,26 @@ export function RoundEntryForm({
     setCourse("");
     setHoles("");
     setHoleDrafts([]);
+    setDraftRestored(false);
+    localStorage.removeItem(draftStorageKey);
   };
 
   return (
     <section className="space-y-4">
       <form onSubmit={submitRound} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <h3 className="text-base font-semibold text-slate-900">Scorecard Entry (9/18 holes)</h3>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <p className="text-xs text-slate-600">Progress auto-saves per hole on this device.</p>
+          {draftRestored && (
+            <button
+              type="button"
+              onClick={clearDraft}
+              className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700"
+            >
+              Clear saved draft
+            </button>
+          )}
+        </div>
 
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="min-w-0 text-sm">

@@ -174,6 +174,7 @@ function App({ currentUser, onSignOut }: AppProps) {
               {activeTab === "rounds" && (
                 <RoundEntryForm
                   distanceUnit={distanceUnit}
+                  draftStorageKey={`golfpro-companion-round-draft-${currentUser.id}`}
                   rounds={appData.rounds}
                   onAddRound={addRound}
                   onDeleteRound={deleteRound}
