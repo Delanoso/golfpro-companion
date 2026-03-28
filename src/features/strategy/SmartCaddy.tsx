@@ -26,25 +26,31 @@ const mode = (values: string[]) => {
 };
 
 export function SmartCaddy({ distanceUnit, clubShots }: SmartCaddyProps) {
-  const [targetDistance, setTargetDistance] = useState(distanceUnit === "meters" ? 137 : 150);
-  const [windAdjustment, setWindAdjustment] = useState(0);
-  const [elevationAdjustment, setElevationAdjustment] = useState(0);
-  const [temperatureAdjustment, setTemperatureAdjustment] = useState(0);
+  const [targetDistance, setTargetDistance] = useState<number | "">("");
+  const [windAdjustment, setWindAdjustment] = useState<number | "">("");
+  const [elevationAdjustment, setElevationAdjustment] = useState<number | "">("");
+  const [temperatureAdjustment, setTemperatureAdjustment] = useState<number | "">("");
   const previousUnit = useRef<DistanceUnit>(distanceUnit);
 
   useEffect(() => {
     if (previousUnit.current === distanceUnit) return;
-    const convert = (value: number) =>
-      yardsToDisplayDistance(displayDistanceToYards(value, previousUnit.current), distanceUnit);
-    setTargetDistance(convert);
-    setWindAdjustment(convert);
-    setElevationAdjustment(convert);
-    setTemperatureAdjustment(convert);
+    const convert = (value: number | "") =>
+      value === ""
+        ? ""
+        : yardsToDisplayDistance(displayDistanceToYards(value, previousUnit.current), distanceUnit);
+    setTargetDistance((current) => convert(current));
+    setWindAdjustment((current) => convert(current));
+    setElevationAdjustment((current) => convert(current));
+    setTemperatureAdjustment((current) => convert(current));
     previousUnit.current = distanceUnit;
   }, [distanceUnit]);
 
-  const adjustedDistanceDisplay =
-    targetDistance + windAdjustment + elevationAdjustment + temperatureAdjustment;
+  const targetValue = targetDistance === "" ? 0 : targetDistance;
+  const windValue = windAdjustment === "" ? 0 : windAdjustment;
+  const elevationValue = elevationAdjustment === "" ? 0 : elevationAdjustment;
+  const temperatureValue = temperatureAdjustment === "" ? 0 : temperatureAdjustment;
+  const adjustedDistanceDisplay = targetValue + windValue + elevationValue + temperatureValue;
+  const hasTargetInput = targetDistance !== "";
   const adjustedDistanceYards = displayDistanceToYards(adjustedDistanceDisplay, distanceUnit);
 
   const recommendations = useMemo<Recommendation[]>(() => {
@@ -83,7 +89,9 @@ export function SmartCaddy({ distanceUnit, clubShots }: SmartCaddyProps) {
             <input
               type="number"
               value={targetDistance}
-              onChange={(event) => setTargetDistance(Number(event.target.value))}
+              onChange={(event) =>
+                setTargetDistance(event.target.value === "" ? "" : Number(event.target.value))
+              }
               className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
@@ -92,7 +100,9 @@ export function SmartCaddy({ distanceUnit, clubShots }: SmartCaddyProps) {
             <input
               type="number"
               value={windAdjustment}
-              onChange={(event) => setWindAdjustment(Number(event.target.value))}
+              onChange={(event) =>
+                setWindAdjustment(event.target.value === "" ? "" : Number(event.target.value))
+              }
               className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
@@ -103,7 +113,9 @@ export function SmartCaddy({ distanceUnit, clubShots }: SmartCaddyProps) {
             <input
               type="number"
               value={elevationAdjustment}
-              onChange={(event) => setElevationAdjustment(Number(event.target.value))}
+              onChange={(event) =>
+                setElevationAdjustment(event.target.value === "" ? "" : Number(event.target.value))
+              }
               className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
@@ -114,7 +126,9 @@ export function SmartCaddy({ distanceUnit, clubShots }: SmartCaddyProps) {
             <input
               type="number"
               value={temperatureAdjustment}
-              onChange={(event) => setTemperatureAdjustment(Number(event.target.value))}
+              onChange={(event) =>
+                setTemperatureAdjustment(event.target.value === "" ? "" : Number(event.target.value))
+              }
               className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
@@ -123,14 +137,18 @@ export function SmartCaddy({ distanceUnit, clubShots }: SmartCaddyProps) {
         <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
           Adjusted playing distance:{" "}
           <span className="font-semibold">
-            {adjustedDistanceDisplay.toFixed(1)} {distanceUnitLabel(distanceUnit)}
+            {hasTargetInput
+              ? `${adjustedDistanceDisplay.toFixed(1)} ${distanceUnitLabel(distanceUnit)}`
+              : "--"}
           </span>
         </div>
       </article>
 
       <article className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <h3 className="text-base font-semibold text-slate-900">Recommendation</h3>
-        {!best ? (
+        {!hasTargetInput ? (
+          <p className="mt-2 text-sm text-slate-600">Enter target distance to get a recommendation.</p>
+        ) : !best ? (
           <p className="mt-2 text-sm text-slate-600">
             Add club shots in the Clubs tab to unlock personalized recommendations.
           </p>

@@ -24,22 +24,32 @@ export function ClubDistanceTracker({
   onDeleteShot,
 }: ClubDistanceTrackerProps) {
   const [date, setDate] = useState(todayIsoDate());
-  const [club, setClub] = useState<ClubName>("7I");
-  const [distanceInput, setDistanceInput] = useState(distanceUnit === "meters" ? 137 : 150);
-  const [shotShape, setShotShape] = useState<ClubShot["shotShape"]>("straight");
+  const [club, setClub] = useState<ClubName | "">("");
+  const [distanceInput, setDistanceInput] = useState<number | "">("");
+  const [shotShape, setShotShape] = useState<ClubShot["shotShape"] | "">("");
   const previousUnit = useRef<DistanceUnit>(distanceUnit);
 
   const stats = getClubDistanceStats(clubShots);
 
   useEffect(() => {
     if (previousUnit.current === distanceUnit) return;
+    if (distanceInput === "") {
+      previousUnit.current = distanceUnit;
+      return;
+    }
     const valueInYards = displayDistanceToYards(distanceInput, previousUnit.current);
     setDistanceInput(yardsToDisplayDistance(valueInYards, distanceUnit));
     previousUnit.current = distanceUnit;
   }, [distanceInput, distanceUnit]);
 
+  const validationError =
+    club === "" || shotShape === "" || distanceInput === ""
+      ? "Select club, distance, and shot pattern."
+      : null;
+
   const submitShot = (event: React.FormEvent) => {
     event.preventDefault();
+    if (validationError) return;
     onAddShot({
       id: createId(),
       date,
@@ -47,6 +57,9 @@ export function ClubDistanceTracker({
       distanceYards: displayDistanceToYards(distanceInput, distanceUnit),
       shotShape,
     });
+    setClub("");
+    setDistanceInput("");
+    setShotShape("");
   };
 
   return (
@@ -68,9 +81,10 @@ export function ClubDistanceTracker({
             <span className="text-slate-600">Club</span>
             <select
               value={club}
-              onChange={(event) => setClub(event.target.value as ClubName)}
+              onChange={(event) => setClub(event.target.value as ClubName | "")}
               className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             >
+              <option value="">Select club</option>
               {clubOptions.map((clubOption) => (
                 <option key={clubOption} value={clubOption}>
                   {clubOption}
@@ -86,7 +100,9 @@ export function ClubDistanceTracker({
               min={1}
               max={450}
               value={distanceInput}
-              onChange={(event) => setDistanceInput(Number(event.target.value))}
+              onChange={(event) =>
+                setDistanceInput(event.target.value === "" ? "" : Number(event.target.value))
+              }
               className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             />
           </label>
@@ -95,9 +111,12 @@ export function ClubDistanceTracker({
             <span className="text-slate-600">Shot Pattern</span>
             <select
               value={shotShape}
-              onChange={(event) => setShotShape(event.target.value as ClubShot["shotShape"])}
+              onChange={(event) =>
+                setShotShape(event.target.value as ClubShot["shotShape"] | "")
+              }
               className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             >
+              <option value="">Select pattern</option>
               <option value="straight">Straight</option>
               <option value="draw">Draw</option>
               <option value="fade">Fade</option>
@@ -106,6 +125,8 @@ export function ClubDistanceTracker({
             </select>
           </label>
         </div>
+
+        {validationError && <p className="mt-3 text-sm text-rose-600">{validationError}</p>}
 
         <button
           type="submit"
