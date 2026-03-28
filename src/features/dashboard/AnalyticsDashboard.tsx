@@ -3,6 +3,7 @@ import type { AppData, DistanceUnit } from "../../types/app";
 import {
   getBiggestLeak,
   getClubDistanceStats,
+  getGirSummary,
   getLeagueLeaderboard,
   getPuttingSummary,
   getScoreSummary,
@@ -22,6 +23,7 @@ export function AnalyticsDashboard({ data, distanceUnit }: AnalyticsDashboardPro
   const puttingSummary = getPuttingSummary(data.rounds);
   const wedgeBuckets = getWedgeBuckets(data.rounds);
   const clubStats = getClubDistanceStats(data.clubShots);
+  const girSummary = getGirSummary(data.rounds);
   const leaderboard = getLeagueLeaderboard(data);
   const leak = getBiggestLeak(data.rounds);
 
@@ -40,6 +42,19 @@ export function AnalyticsDashboard({ data, distanceUnit }: AnalyticsDashboardPro
           value={puttingSummary.totalHoles ? puttingSummary.puttsPerHole.toFixed(2) : "--"}
         />
       </div>
+
+      <article className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <h3 className="text-base font-semibold text-slate-900">GIR (Greens in Regulation)</h3>
+        {girSummary.totalHoles === 0 ? (
+          <p className="mt-2 text-sm text-slate-600">No hole-by-hole GIR data yet.</p>
+        ) : (
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <StatCard label="GIR %" value={`${girSummary.rate.toFixed(1)}%`} tone="success" />
+            <StatCard label="GIR Holes" value={`${girSummary.girHoles}`} />
+            <StatCard label="Tracked Holes" value={`${girSummary.totalHoles}`} />
+          </div>
+        )}
+      </article>
 
       <article className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <h3 className="text-base font-semibold text-slate-900">Biggest Stroke Leak</h3>

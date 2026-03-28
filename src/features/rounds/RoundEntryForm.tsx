@@ -28,6 +28,7 @@ type HoleScoreDraft = {
   par: number | "";
   strokes: number | "";
   putts: number | "";
+  gir: "yes" | "no" | "";
   wedgeDistance: number | "";
   wedgeMiss: WedgeShot["miss"] | "";
   wedge2Enabled: boolean;
@@ -41,6 +42,7 @@ function createHoleDraft(holeNumber: number): HoleScoreDraft {
     par: "",
     strokes: "",
     putts: "",
+    gir: "",
     wedgeDistance: "",
     wedgeMiss: "",
     wedge2Enabled: false,
@@ -136,6 +138,7 @@ export function RoundEntryForm({
         hole.par !== "" ||
         hole.strokes !== "" ||
         hole.putts !== "" ||
+        hole.gir !== "" ||
         hole.wedgeDistance !== "" ||
         hole.wedgeMiss !== "" ||
         hole.wedge2Enabled ||
@@ -216,8 +219,8 @@ export function RoundEntryForm({
     if (holes === "") return "Please select 9 or 18 holes.";
 
     for (const hole of holeDrafts) {
-      if (hole.par === "" || hole.strokes === "" || hole.putts === "") {
-        return `Hole ${hole.holeNumber}: par, strokes, and putts are required.`;
+      if (hole.par === "" || hole.strokes === "" || hole.putts === "" || hole.gir === "") {
+        return `Hole ${hole.holeNumber}: par, strokes, putts, and GIR are required.`;
       }
       if (hole.putts > hole.strokes) {
         return `Hole ${hole.holeNumber}: putts cannot be more than strokes.`;
@@ -245,7 +248,7 @@ export function RoundEntryForm({
   const updateHoleDraft = (
     holeNumber: number,
     field: keyof Omit<HoleScoreDraft, "holeNumber">,
-    value: number | "" | boolean | WedgeShot["miss"],
+    value: number | "" | boolean | WedgeShot["miss"] | "yes" | "no",
   ) => {
     setHoleDrafts((current) =>
       current.map((draft) => {
@@ -307,6 +310,7 @@ export function RoundEntryForm({
         par: clamp(Number(hole.par), 2, 7),
         strokes: clamp(Number(hole.strokes), 1, 20),
         putts: clamp(Number(hole.putts), 0, 10),
+        gir: hole.gir === "yes",
         // Keep first-shot fields for backward compatibility.
         wedgeDistanceYards: firstShot?.distanceYards,
         wedgeMiss: firstShot?.miss,
@@ -428,6 +432,7 @@ export function RoundEntryForm({
                     <th className="px-2 py-2">Par</th>
                     <th className="px-2 py-2">Strokes</th>
                     <th className="px-2 py-2">Putts</th>
+                    <th className="px-2 py-2">GIR</th>
                     <th className="px-2 py-2">Wedge ({distanceUnitLabel(distanceUnit)})</th>
                     <th className="px-2 py-2">Wedge miss</th>
                   </tr>
@@ -486,6 +491,23 @@ export function RoundEntryForm({
                           className="w-20 rounded-lg border border-slate-300 px-2 py-1"
                           placeholder="-"
                         />
+                      </td>
+                      <td className="px-2 py-2">
+                        <select
+                          value={hole.gir}
+                          onChange={(event) =>
+                            updateHoleDraft(
+                              hole.holeNumber,
+                              "gir",
+                              event.target.value as "yes" | "no" | "",
+                            )
+                          }
+                          className="w-24 rounded-lg border border-slate-300 px-2 py-1"
+                        >
+                          <option value="">-</option>
+                          <option value="yes">Yes</option>
+                          <option value="no">No</option>
+                        </select>
                       </td>
                       <td className="px-2 py-2">
                         <div className="space-y-1">

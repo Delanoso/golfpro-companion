@@ -14,6 +14,7 @@ export type HoleScore = {
   par: number;
   strokes: number;
   putts: number;
+  gir?: boolean;
   wedgeDistanceYards?: number;
   wedgeMiss?: WedgeShot["miss"];
   wedgeShots?: Array<{

@@ -42,6 +42,12 @@ type PuttingSummary = {
   estimatedPuttingStrokesLost: number;
 };
 
+type GirSummary = {
+  totalHoles: number;
+  girHoles: number;
+  rate: number;
+};
+
 const average = (values: number[]) =>
   values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length;
 
@@ -68,6 +74,17 @@ export function getPuttingSummary(rounds: RoundEntry[]): PuttingSummary {
     onePuttRate: totalHoles === 0 ? 0 : (totalOnePutts / totalHoles) * 100,
     threePuttRate: totalHoles === 0 ? 0 : (totalThreePutts / totalHoles) * 100,
     estimatedPuttingStrokesLost: Math.max(0, totalPutts - baselinePutts),
+  };
+}
+
+export function getGirSummary(rounds: RoundEntry[]): GirSummary {
+  const holeScores = rounds.flatMap((round) => round.holeScores ?? []);
+  const tracked = holeScores.filter((hole) => typeof hole.gir === "boolean");
+  const girCount = tracked.filter((hole) => hole.gir).length;
+  return {
+    totalHoles: tracked.length,
+    girHoles: girCount,
+    rate: tracked.length === 0 ? 0 : (girCount / tracked.length) * 100,
   };
 }
 
