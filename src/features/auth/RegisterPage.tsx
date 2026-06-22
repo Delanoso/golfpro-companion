@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { formatAuthError } from "../../lib/authErrors";
 import { supabase } from "../../lib/supabase";
 import { ensurePlayerProfile } from "../../services/playerProfileService";
 
@@ -26,37 +27,40 @@ export function RegisterPage() {
     setError(null);
     setSuccessMessage(null);
 
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          display_name: displayName,
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            display_name: displayName,
+          },
         },
-      },
-    });
+      });
 
-    if (signUpError) {
-      setLoading(false);
-      setError(signUpError.message);
-      return;
-    }
-
-    if (data.user && data.session) {
-      try {
-        await ensurePlayerProfile(data.user);
-      } catch (profileError) {
-        console.warn("Unable to create player profile after registration.", profileError);
+      if (signUpError) {
+        setError(formatAuthError(signUpError));
+        return;
       }
-      setLoading(false);
-      navigate("/app", { replace: true });
-      return;
-    }
 
-    setLoading(false);
-    setSuccessMessage(
-      "Registration successful. Check your email for confirmation, then log in.",
-    );
+      if (data.user && data.session) {
+        try {
+          await ensurePlayerProfile(data.user);
+        } catch (profileError) {
+          console.warn("Unable to create player profile after registration.", profileError);
+        }
+        navigate("/app", { replace: true });
+        return;
+      }
+
+      setSuccessMessage(
+        "Registration successful. Check your email for confirmation, then log in.",
+      );
+    } catch (signUpError) {
+      setError(formatAuthError(signUpError));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

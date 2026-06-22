@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { formatAuthError } from "../../lib/authErrors";
 import { supabase } from "../../lib/supabase";
 
 export function LoginPage() {
@@ -16,16 +17,21 @@ export function LoginPage() {
     setLoading(true);
     setError(null);
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    setLoading(false);
-
-    if (signInError) {
-      setError(signInError.message);
+      if (signInError) {
+        setError(formatAuthError(signInError));
+        return;
+      }
+    } catch (signInError) {
+      setError(formatAuthError(signInError));
       return;
+    } finally {
+      setLoading(false);
     }
 
     navigate("/app", { replace: true });
