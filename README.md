@@ -7,7 +7,7 @@ This app was rebuilt as a **mobile-first golf performance suite** focused on:
 - smart caddy club recommendations from your own data
 - custom local league scoring + auto handicap
 - club distance tracking (min/max/average)
-- player login and registration (Supabase Auth)
+- no-login single-user storage in your browser
 
 ## App Sections
 
@@ -60,57 +60,13 @@ Contains all existing strategy/analytics tools:
 
 ## Data Persistence
 
-Each player's app data is saved in browser `localStorage` under a user-specific key, so different logins on the same device stay separated.
+This is a no-login, single-user app. Your rounds, club distances, league settings, drafts, and distance-unit preference are saved automatically in this browser's `localStorage`.
 
-## Authentication + Registration Database Link
+Because the data is stored locally in the browser:
 
-This app uses **Supabase Auth** for login/registration and writes registered players to a `players` table.
-
-### Required environment variables
-
-```bash
-VITE_SUPABASE_URL=...
-VITE_SUPABASE_ANON_KEY=...
-```
-
-You can also use Next-style names (supported in this app):
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=...
-```
-
-### Supabase SQL (run once)
-
-```sql
-create table if not exists public.players (
-  id uuid primary key references auth.users(id) on delete cascade,
-  email text not null unique,
-  display_name text not null,
-  created_at timestamptz not null default now()
-);
-
-alter table public.players enable row level security;
-
-create policy "players_insert_own"
-on public.players
-for insert
-to authenticated
-with check (auth.uid() = id);
-
-create policy "players_select_own"
-on public.players
-for select
-to authenticated
-using (auth.uid() = id);
-
-create policy "players_update_own"
-on public.players
-for update
-to authenticated
-using (auth.uid() = id)
-with check (auth.uid() = id);
-```
+- no account, login, registration, or Supabase setup is required
+- data stays available when you reopen the app on the same device/browser
+- clearing browser site data or using another device/browser will not carry the data over
 
 ## Distance Units
 
@@ -122,7 +78,6 @@ with check (auth.uid() = id);
 
 ```bash
 npm install
-cp .env.example .env
 npm run dev -- --host
 ```
 
@@ -162,13 +117,11 @@ By default the container binds to `127.0.0.1:8087`, which means:
 
 ### 2b) If you explicitly want IP:port public access
 
-Create an override env file on the VPS (you can copy `deploy/vps.env.example`):
+Edit `.env.vps` on the VPS:
 
 ```bash
-cat > .env.vps << 'EOF'
 GOLFPRO_BIND_IP=0.0.0.0
 GOLFPRO_HOST_PORT=8087
-EOF
 ```
 
 Then run:
