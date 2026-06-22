@@ -46,13 +46,7 @@ export function RegisterPage() {
       try {
         await ensurePlayerProfile(data.user);
       } catch (profileError) {
-        setLoading(false);
-        setError(
-          profileError instanceof Error
-            ? profileError.message
-            : "Unable to create player profile.",
-        );
-        return;
+        console.warn("Unable to create player profile after registration.", profileError);
       }
       setLoading(false);
       navigate("/app", { replace: true });

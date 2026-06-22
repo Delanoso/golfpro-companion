@@ -77,6 +77,7 @@ You can also use Next-style names (supported in this app):
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=...
 ```
 
@@ -146,8 +147,24 @@ cd golfpro-companion
 
 ### 2) Build and run in isolated mode (default)
 
+Create an env file with your Supabase auth values before building:
+
 ```bash
-docker compose -f docker-compose.vps.yml up -d --build
+cp deploy/vps.env.example .env.vps
+nano .env.vps
+```
+
+At minimum, set:
+
+```bash
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
+```
+
+These values are embedded into the static Vite bundle during the Docker build, so rebuild the container after changing them.
+
+```bash
+docker compose --env-file .env.vps -f docker-compose.vps.yml up -d --build
 ```
 
 Test:
@@ -162,13 +179,11 @@ By default the container binds to `127.0.0.1:8087`, which means:
 
 ### 2b) If you explicitly want IP:port public access
 
-Create an override env file on the VPS (you can copy `deploy/vps.env.example`):
+Edit `.env.vps` on the VPS:
 
 ```bash
-cat > .env.vps << 'EOF'
 GOLFPRO_BIND_IP=0.0.0.0
 GOLFPRO_HOST_PORT=8087
-EOF
 ```
 
 Then run:
