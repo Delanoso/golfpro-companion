@@ -1,5 +1,7 @@
+import { clubOptions } from "../data/defaultData";
 import type {
   AppData,
+  ClubName,
   ClubShot,
   LeaguePlayerRound,
   LeagueRound,
@@ -50,6 +52,21 @@ type GirSummary = {
 
 const average = (values: number[]) =>
   values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length;
+
+const clubOrderLookup = new Map<ClubName, number>(
+  clubOptions.map((club, index) => [club, index]),
+);
+
+const compareClubOrder = (a: string, b: string): number => {
+  const rankA = clubOrderLookup.get(a as ClubName);
+  const rankB = clubOrderLookup.get(b as ClubName);
+  if (typeof rankA === "number" && typeof rankB === "number") {
+    return rankA - rankB;
+  }
+  if (typeof rankA === "number") return -1;
+  if (typeof rankB === "number") return 1;
+  return a.localeCompare(b);
+};
 
 export function getScoreSummary(rounds: RoundEntry[]): ScoreSummary {
   return {
@@ -148,7 +165,7 @@ export function getClubDistanceStats(shots: ClubShot[]): ClubStat[] {
       max: Math.max(...distances),
       average: average(distances),
     }))
-    .sort((a, b) => b.average - a.average);
+    .sort((a, b) => compareClubOrder(a.club, b.club));
 }
 
 type LeaderboardRow = {
