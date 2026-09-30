@@ -9,8 +9,8 @@ type AppTabBarProps = {
 const tabs: Array<{ id: AppTab; label: string }> = [
   { id: "dashboard", label: "Analytics" },
   { id: "rounds", label: "Rounds" },
-  { id: "clubs", label: "Clubs" },
   { id: "strategy", label: "Caddy" },
+  { id: "clubs", label: "Clubs" },
   { id: "league", label: "League" },
 ];
 
