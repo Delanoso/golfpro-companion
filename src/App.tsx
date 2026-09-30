@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { AppSectionBar } from "./components/AppSectionBar";
 import { AppTabBar, type AppTab } from "./components/AppTabBar";
-import { initialAppData } from "./data/defaultData";
+import { clubOptions, initialAppData } from "./data/defaultData";
 import { ClubDistanceTracker } from "./features/clubs/ClubDistanceTracker";
 import { AnalyticsDashboard } from "./features/dashboard/AnalyticsDashboard";
 import { LeagueManager } from "./features/league/LeagueManager";
@@ -80,6 +80,15 @@ function App({ currentUser, onSignOut }: AppProps) {
     updateData((current) => ({
       ...current,
       clubShots: [...current.clubShots, shot],
+    }));
+  };
+
+  const updateClubBag = (clubs: ClubShot["club"][]) => {
+    const selectedSet = new Set(clubs);
+    const ordered = clubOptions.filter((club) => selectedSet.has(club));
+    updateData((current) => ({
+      ...current,
+      clubBag: ordered,
     }));
   };
 
@@ -283,7 +292,9 @@ function App({ currentUser, onSignOut }: AppProps) {
                 <ClubDistanceTracker
                   distanceUnit={distanceUnit}
                   clubShots={appData.clubShots}
+                  selectedClubs={appData.clubBag}
                   onAddShot={addClubShot}
+                  onChangeSelectedClubs={updateClubBag}
                   onDeleteShot={deleteClubShot}
                 />
               )}

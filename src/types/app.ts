@@ -40,11 +40,24 @@ export type RoundEntry = {
 
 export type ClubName =
   | "Driver"
+  | "2W"
   | "3W"
+  | "4W"
   | "5W"
+  | "7W"
+  | "9W"
+  | "11W"
+  | "13W"
+  | "1H"
+  | "2H"
   | "3H"
   | "4H"
   | "5H"
+  | "6H"
+  | "7H"
+  | "1I"
+  | "2I"
+  | "3I"
   | "4I"
   | "5I"
   | "6I"
@@ -52,15 +65,20 @@ export type ClubName =
   | "8I"
   | "9I"
   | "PW"
+  | "46W"
+  | "48W"
   | "50W"
   | "52W"
   | "54W"
   | "56W"
   | "58W"
   | "60W"
+  | "62W"
   | "GW"
+  | "AW"
   | "SW"
-  | "LW";
+  | "LW"
+  | "Putter";
 
 export type ClubShot = {
   id: string;
@@ -95,6 +113,7 @@ export type LeagueSettings = {
 export type AppData = {
   rounds: RoundEntry[];
   clubShots: ClubShot[];
+  clubBag: ClubName[];
   leagueRounds: LeagueRound[];
   leagueSettings: LeagueSettings;
 };

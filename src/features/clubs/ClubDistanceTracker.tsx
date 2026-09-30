@@ -14,14 +14,18 @@ import {
 type ClubDistanceTrackerProps = {
   distanceUnit: DistanceUnit;
   clubShots: ClubShot[];
+  selectedClubs: ClubName[];
   onAddShot: (shot: ClubShot) => void;
+  onChangeSelectedClubs: (clubs: ClubName[]) => void;
   onDeleteShot: (id: string) => void;
 };
 
 export function ClubDistanceTracker({
   distanceUnit,
   clubShots,
+  selectedClubs,
   onAddShot,
+  onChangeSelectedClubs,
   onDeleteShot,
 }: ClubDistanceTrackerProps) {
   const [date, setDate] = useState(todayIsoDate());
@@ -29,6 +33,8 @@ export function ClubDistanceTracker({
   const [distanceInput, setDistanceInput] = useState<number | "">("");
   const [shotShape, setShotShape] = useState<ClubShot["shotShape"] | "">("");
   const previousUnit = useRef<DistanceUnit>(distanceUnit);
+  const selectedClubSet = new Set(selectedClubs);
+  const clubsForTracking = clubOptions.filter((clubOption) => selectedClubSet.has(clubOption));
 
   const stats = getClubDistanceStats(clubShots);
 
@@ -43,10 +49,34 @@ export function ClubDistanceTracker({
     previousUnit.current = distanceUnit;
   }, [distanceInput, distanceUnit]);
 
+  useEffect(() => {
+    if (club !== "" && !selectedClubs.includes(club)) {
+      setClub("");
+    }
+  }, [club, selectedClubs]);
+
   const validationError =
-    club === "" || shotShape === "" || distanceInput === ""
+    clubsForTracking.length === 0
+      ? "Select at least one club in Build Your Bag."
+      : club === "" || shotShape === "" || distanceInput === ""
       ? "Select club, distance, and shot pattern."
       : null;
+
+  const setAllClubs = () => {
+    onChangeSelectedClubs(clubOptions);
+  };
+
+  const clearAllClubs = () => {
+    onChangeSelectedClubs([]);
+  };
+
+  const toggleClub = (clubName: ClubName) => {
+    if (selectedClubSet.has(clubName)) {
+      onChangeSelectedClubs(selectedClubs.filter((clubOption) => clubOption !== clubName));
+      return;
+    }
+    onChangeSelectedClubs([...selectedClubs, clubName]);
+  };
 
   const submitShot = (event: React.FormEvent) => {
     event.preventDefault();
@@ -66,6 +96,52 @@ export function ClubDistanceTracker({
 
   return (
     <section className="space-y-4">
+      <article className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">Club Settings</h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Build your bag. Only selected clubs appear in the Club dropdown.
+            </p>
+            <p className="mt-1 text-xs font-semibold text-slate-500">
+              Selected: {selectedClubs.length} / {clubOptions.length}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={setAllClubs}
+              className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700"
+            >
+              Select all
+            </button>
+            <button
+              type="button"
+              onClick={clearAllClubs}
+              className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {clubOptions.map((clubOption) => (
+            <label
+              key={clubOption}
+              className="flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-2 text-sm"
+            >
+              <input
+                type="checkbox"
+                checked={selectedClubSet.has(clubOption)}
+                onChange={() => toggleClub(clubOption)}
+              />
+              <span className="text-slate-700">{formatClubDisplayName(clubOption)}</span>
+            </label>
+          ))}
+        </div>
+      </article>
+
       <form onSubmit={submitShot} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <h3 className="text-base font-semibold text-slate-900">Club Distance Tracking</h3>
 
@@ -87,7 +163,7 @@ export function ClubDistanceTracker({
               className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
             >
               <option value="">Select club</option>
-              {clubOptions.map((clubOption) => (
+              {clubsForTracking.map((clubOption) => (
                 <option key={clubOption} value={clubOption}>
                   {formatClubDisplayName(clubOption)}
                 </option>
@@ -132,6 +208,7 @@ export function ClubDistanceTracker({
 
         <button
           type="submit"
+          disabled={clubsForTracking.length === 0}
           className="mt-4 w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white"
         >
           Add shot
