@@ -17,6 +17,31 @@ import type {
   RoundEntry,
 } from "./types/app";
 
+type AppSyncPayload = {
+  version: 1;
+  exportedAt: string;
+  data: AppData;
+  distanceUnit: DistanceUnit;
+};
+
+const encodeSyncPayload = (payload: AppSyncPayload): string => {
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary);
+};
+
+const decodeSyncPayload = (encoded: string): unknown => {
+  const binary = atob(encoded.trim());
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
+};
+
+const isDistanceUnit = (value: unknown): value is DistanceUnit =>
+  value === "meters" || value === "yards";
+
 function normalizeAppData(data: AppData): AppData {
   return {
     ...initialAppData,
@@ -33,6 +58,10 @@ function App() {
   const [activeTab, setActiveTab] = useState<AppTab>("dashboard");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [syncCode, setSyncCode] = useState("");
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [data, setData] = useLocalStorageState<AppData>(
     "golfpro-companion-data",
     initialAppData,
@@ -114,6 +143,64 @@ function App() {
     setIsResetConfirmOpen(true);
   };
 
+  const openSyncModal = () => {
+    setIsMenuOpen(false);
+    setSyncCode("");
+    setSyncStatus(null);
+    setSyncError(null);
+    setIsSyncModalOpen(true);
+  };
+
+  const generateSyncCode = () => {
+    const payload: AppSyncPayload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      data: appData,
+      distanceUnit,
+    };
+    setSyncCode(encodeSyncPayload(payload));
+    setSyncError(null);
+    setSyncStatus("Sync code generated. Copy it to your other device.");
+  };
+
+  const copySyncCode = async () => {
+    if (!syncCode.trim()) {
+      setSyncError("Generate a sync code first.");
+      setSyncStatus(null);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(syncCode);
+      setSyncError(null);
+      setSyncStatus("Sync code copied.");
+    } catch {
+      setSyncError("Clipboard copy failed. Long-press the code box and copy manually.");
+      setSyncStatus(null);
+    }
+  };
+
+  const importSyncCode = () => {
+    try {
+      const parsed = decodeSyncPayload(syncCode);
+      if (!parsed || typeof parsed !== "object" || !("data" in parsed)) {
+        throw new Error("Invalid sync code format.");
+      }
+      const payload = parsed as Partial<AppSyncPayload>;
+      if (!payload.data || typeof payload.data !== "object") {
+        throw new Error("Sync code does not include app data.");
+      }
+      setData(normalizeAppData(payload.data as AppData));
+      if (isDistanceUnit(payload.distanceUnit)) {
+        setDistanceUnit(payload.distanceUnit);
+      }
+      setSyncError(null);
+      setSyncStatus("Data imported. This device now matches your other device.");
+    } catch {
+      setSyncStatus(null);
+      setSyncError("Invalid sync code. Generate and copy the full code again.");
+    }
+  };
+
   const confirmResetAllData = () => {
     resetAllData();
     setIsResetConfirmOpen(false);
@@ -154,7 +241,14 @@ function App() {
                   Menu
                 </button>
                 {isMenuOpen && (
-                  <div className="absolute right-0 z-50 mt-2 w-36 rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                  <div className="absolute right-0 z-50 mt-2 w-40 rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                    <button
+                      type="button"
+                      onClick={openSyncModal}
+                      className="block w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                    >
+                      Sync data
+                    </button>
                     <button
                       type="button"
                       onClick={requestResetAllData}
@@ -240,6 +334,66 @@ function App() {
                 className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white"
               >
                 Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isSyncModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-4 shadow-xl">
+            <h2 className="text-base font-semibold text-slate-900">Sync between phone and tablet</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              No login needed. Generate a code on one device, copy it, then paste/import on the
+              other device.
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Import will replace local data on this device.
+            </p>
+
+            <textarea
+              value={syncCode}
+              onChange={(event) => setSyncCode(event.target.value)}
+              rows={6}
+              className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs"
+              placeholder="Tap Generate on source device, then paste code here."
+            />
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={generateSyncCode}
+                className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white"
+              >
+                Generate code
+              </button>
+              <button
+                type="button"
+                onClick={() => void copySyncCode()}
+                className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
+              >
+                Copy code
+              </button>
+              <button
+                type="button"
+                onClick={importSyncCode}
+                className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white"
+              >
+                Import code
+              </button>
+            </div>
+
+            {syncStatus && <p className="mt-3 text-xs text-emerald-700">{syncStatus}</p>}
+            {syncError && <p className="mt-3 text-xs text-rose-600">{syncError}</p>}
+
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsSyncModalOpen(false)}
+                className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700"
+              >
+                Close
               </button>
             </div>
           </div>
