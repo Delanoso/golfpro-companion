@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { clubOptions } from "../../data/defaultData";
 import type { ClubName, ClubShot, DistanceUnit } from "../../types/app";
 import { getClubDistanceStats } from "../../utils/analytics";
+import { formatClubDisplayName } from "../../utils/clubs";
 import { createId, todayIsoDate } from "../../utils/helpers";
 import {
   displayDistanceToYards,
@@ -88,7 +89,7 @@ export function ClubDistanceTracker({
               <option value="">Select club</option>
               {clubOptions.map((clubOption) => (
                 <option key={clubOption} value={clubOption}>
-                  {clubOption}
+                  {formatClubDisplayName(clubOption)}
                 </option>
               ))}
             </select>
@@ -158,7 +159,7 @@ export function ClubDistanceTracker({
               <tbody>
                 {stats.map((item) => (
                   <tr key={item.club} className="border-t border-slate-100 text-slate-700">
-                    <td className="py-2 pr-3 font-semibold">{item.club}</td>
+                    <td className="py-2 pr-3 font-semibold">{formatClubDisplayName(item.club)}</td>
                     <td className="py-2 pr-3">{formatDistanceFromYards(item.average, distanceUnit, 1)}</td>
                     <td className="py-2 pr-3">{formatDistanceFromYards(item.min, distanceUnit, 0)}</td>
                     <td className="py-2 pr-3">{formatDistanceFromYards(item.max, distanceUnit, 0)}</td>
@@ -187,7 +188,8 @@ export function ClubDistanceTracker({
                 >
                   <div className="text-sm">
                     <p className="font-semibold text-slate-800">
-                      {shot.club} - {formatDistanceFromYards(shot.distanceYards, distanceUnit, 1)}
+                      {formatClubDisplayName(shot.club)} -{" "}
+                      {formatDistanceFromYards(shot.distanceYards, distanceUnit, 1)}
                     </p>
                     <p className="text-xs text-slate-500">
                       {shot.date} · {shot.shotShape}

@@ -9,6 +9,7 @@ import {
   getScoreSummary,
   getWedgeBuckets,
 } from "../../utils/analytics";
+import { formatClubDisplayName } from "../../utils/clubs";
 import { formatDistanceFromYards, formatRangeFromYards } from "../../utils/units";
 
 type AnalyticsDashboardProps = {
@@ -124,7 +125,7 @@ export function AnalyticsDashboard({ data, distanceUnit }: AnalyticsDashboardPro
               <tbody>
                 {clubStats.map((club) => (
                   <tr key={club.club} className="border-t border-slate-100 text-slate-700">
-                    <td className="py-2 pr-3 font-semibold">{club.club}</td>
+                    <td className="py-2 pr-3 font-semibold">{formatClubDisplayName(club.club)}</td>
                     <td className="py-2 pr-3">{formatDistanceFromYards(club.average, distanceUnit, 1)}</td>
                     <td className="py-2 pr-3">{formatDistanceFromYards(club.min, distanceUnit, 0)}</td>
                     <td className="py-2 pr-3">{formatDistanceFromYards(club.max, distanceUnit, 0)}</td>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ClubShot, DistanceUnit } from "../../types/app";
 import { getClubDistanceStats } from "../../utils/analytics";
+import { formatClubDisplayName } from "../../utils/clubs";
 import {
   displayDistanceToYards,
   distanceUnitLabel,
@@ -156,7 +157,7 @@ export function SmartCaddy({ distanceUnit, clubShots }: SmartCaddyProps) {
           <div className="mt-3 space-y-3">
             <div className="rounded-xl bg-emerald-50 p-3 ring-1 ring-emerald-200">
               <p className="text-sm text-slate-700">Primary club</p>
-              <p className="text-xl font-bold text-emerald-800">{best.club}</p>
+              <p className="text-xl font-bold text-emerald-800">{formatClubDisplayName(best.club)}</p>
               <p className="text-sm text-slate-700">
                 Avg {yardsToDisplayDistance(best.average, distanceUnit).toFixed(1)}{" "}
                 {distanceUnitLabel(distanceUnit)} · gap{" "}
@@ -168,7 +169,9 @@ export function SmartCaddy({ distanceUnit, clubShots }: SmartCaddyProps) {
             {backup && (
               <div className="rounded-xl bg-slate-50 p-3">
                 <p className="text-sm text-slate-700">Backup club</p>
-                <p className="text-lg font-bold text-slate-900">{backup.club}</p>
+                <p className="text-lg font-bold text-slate-900">
+                  {formatClubDisplayName(backup.club)}
+                </p>
                 <p className="text-sm text-slate-700">
                   Avg {yardsToDisplayDistance(backup.average, distanceUnit).toFixed(1)}{" "}
                   {distanceUnitLabel(distanceUnit)} · gap{" "}
@@ -179,7 +182,8 @@ export function SmartCaddy({ distanceUnit, clubShots }: SmartCaddyProps) {
             )}
 
             <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
-              Typical miss tendency with {best.club}: <span className="font-semibold">{bias}</span>
+              Typical miss tendency with {formatClubDisplayName(best.club)}:{" "}
+              <span className="font-semibold">{bias}</span>
             </p>
           </div>
         )}
