@@ -27,6 +27,7 @@ export type RoundEntry = {
   id: string;
   date: string;
   course: string;
+  tee?: string;
   holes: HoleCount;
   par: number;
   totalScore: number;

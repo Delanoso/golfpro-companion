@@ -1,4 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ERPM_COURSE_NAME,
+  ERPM_GUIDE,
+  type ErpmTee,
+  getErpmHoleGuide,
+  isErpmCourseName,
+} from "../../data/courseGuides";
 import type { DistanceUnit, HoleCount, HoleScore, RoundEntry, WedgeShot } from "../../types/app";
 import { clamp, createId, todayIsoDate } from "../../utils/helpers";
 import {
@@ -18,6 +25,7 @@ type RoundEntryFormProps = {
 type RoundDraftSnapshot = {
   date: string;
   course: string;
+  tee: ErpmTee | "";
   holes: HoleCount | "";
   notes: string;
   holeDrafts: HoleScoreDraft[];
@@ -70,6 +78,7 @@ export function RoundEntryForm({
 }: RoundEntryFormProps) {
   const [date, setDate] = useState(todayIsoDate());
   const [course, setCourse] = useState("");
+  const [tee, setTee] = useState<ErpmTee | "">("");
   const [holes, setHoles] = useState<HoleCount | "">("");
   const [notes, setNotes] = useState("");
   const [holeDrafts, setHoleDrafts] = useState<HoleScoreDraft[]>([]);
@@ -82,6 +91,7 @@ export function RoundEntryForm({
     setDraftRestored(false);
     setDate(todayIsoDate());
     setCourse("");
+    setTee("");
     setHoles("");
     setNotes("");
     setHoleDrafts([]);
@@ -115,6 +125,7 @@ export function RoundEntryForm({
           : todayIsoDate(),
       );
       setCourse(typeof parsed.course === "string" ? parsed.course : "");
+      setTee(parsed.tee === "yellow" || parsed.tee === "white" ? parsed.tee : "");
       setHoles(parsedHoles);
       setNotes(typeof parsed.notes === "string" ? parsed.notes : "");
       setHoleDrafts(ensureHoleDrafts(parsedHoles, parsedDrafts));
@@ -129,6 +140,11 @@ export function RoundEntryForm({
   useEffect(() => {
     setHoleDrafts((current) => ensureHoleDrafts(holes, current));
   }, [holes]);
+
+  useEffect(() => {
+    if (isErpmCourseName(course)) return;
+    setTee("");
+  }, [course]);
 
   useEffect(() => {
     if (!hasHydratedDraft) return;
@@ -147,6 +163,7 @@ export function RoundEntryForm({
     );
     const hasAnyData =
       course.trim().length > 0 ||
+      tee !== "" ||
       holes !== "" ||
       notes.trim().length > 0 ||
       hasAnyHoleData;
@@ -159,12 +176,13 @@ export function RoundEntryForm({
     const snapshot: RoundDraftSnapshot = {
       date,
       course,
+      tee,
       holes,
       notes,
       holeDrafts,
     };
     localStorage.setItem(draftStorageKey, JSON.stringify(snapshot));
-  }, [course, date, draftStorageKey, hasHydratedDraft, holeDrafts, holes, notes]);
+  }, [course, date, draftStorageKey, hasHydratedDraft, holeDrafts, holes, notes, tee]);
 
   useEffect(() => {
     if (previousUnit.current === distanceUnit) return;
@@ -278,6 +296,7 @@ export function RoundEntryForm({
 
   const clearDraft = () => {
     setCourse("");
+    setTee("");
     setHoles("");
     setNotes("");
     setHoleDrafts([]);
@@ -334,6 +353,7 @@ export function RoundEntryForm({
       id: createId(),
       date,
       course,
+      tee: tee || undefined,
       holes,
       par: summary.totalPar,
       totalScore: summary.totalScore,
@@ -347,6 +367,7 @@ export function RoundEntryForm({
 
     setNotes("");
     setCourse("");
+    setTee("");
     setHoles("");
     setHoleDrafts([]);
     setDraftRestored(false);
@@ -383,11 +404,16 @@ export function RoundEntryForm({
           <label className="min-w-0 text-sm">
             <span className="text-slate-600">Course</span>
             <input
+              list="course-name-options"
               value={course}
               onChange={(event) => setCourse(event.target.value)}
               className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
               placeholder="Course name"
             />
+            <datalist id="course-name-options">
+              <option value={ERPM_COURSE_NAME} />
+              <option value="ERPM" />
+            </datalist>
           </label>
 
           <label className="min-w-0 text-sm">
@@ -404,6 +430,21 @@ export function RoundEntryForm({
               <option value={18}>18</option>
             </select>
           </label>
+
+          {isErpmCourseName(course) && (
+            <label className="min-w-0 text-sm">
+              <span className="text-slate-600">ERPM tee</span>
+              <select
+                value={tee}
+                onChange={(event) => setTee(event.target.value as ErpmTee | "")}
+                className="mt-1 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2"
+              >
+                <option value="">Select tee</option>
+                <option value="yellow">Yellow (Championship)</option>
+                <option value="white">White (Club)</option>
+              </select>
+            </label>
+          )}
         </div>
 
         <label className="mt-3 block text-sm">
@@ -416,6 +457,39 @@ export function RoundEntryForm({
             placeholder="What cost or saved strokes today?"
           />
         </label>
+
+        {isErpmCourseName(course) && (
+          <div className="mt-3 rounded-xl bg-emerald-50 p-3 ring-1 ring-emerald-200">
+            <p className="text-sm font-semibold text-emerald-900">ERPM course guide loaded</p>
+            <p className="mt-1 text-xs text-emerald-900/90">
+              {ERPM_GUIDE.profile.style}
+            </p>
+            <p className="mt-1 text-xs text-emerald-900/90">{ERPM_GUIDE.profile.windNote}</p>
+            <p className="mt-2 text-xs text-emerald-900/90">
+              Ratings/Slope: Yellow {ERPM_GUIDE.profile.ratingsByTee.yellow.rating}/
+              {ERPM_GUIDE.profile.ratingsByTee.yellow.slope} · White{" "}
+              {ERPM_GUIDE.profile.ratingsByTee.white.rating}/
+              {ERPM_GUIDE.profile.ratingsByTee.white.slope}
+            </p>
+            {holeDrafts.length > 0 && (
+              <button
+                type="button"
+                onClick={() =>
+                  setHoleDrafts((current) =>
+                    current.map((hole) => {
+                      const guide = getErpmHoleGuide(hole.holeNumber);
+                      if (!guide) return hole;
+                      return { ...hole, par: guide.par };
+                    }),
+                  )
+                }
+                className="mt-2 rounded-md bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-800"
+              >
+                Fill ERPM pars
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="mt-4 rounded-xl bg-slate-50 p-3">
           <p className="text-sm font-semibold text-slate-800">
@@ -440,8 +514,36 @@ export function RoundEntryForm({
                 <tbody>
                   {holeDrafts.map((hole) => (
                     <tr key={hole.holeNumber} className="border-t border-slate-200">
-                      <td className="px-2 py-2 font-semibold text-slate-800">{hole.holeNumber}</td>
+                      <td className="px-2 py-2 align-top">
+                        <p className="font-semibold text-slate-800">{hole.holeNumber}</p>
+                        {isErpmCourseName(course) && (
+                          <div className="mt-1 text-[11px] text-slate-600">
+                            {(() => {
+                              const guide = getErpmHoleGuide(hole.holeNumber);
+                              if (!guide) return null;
+                              const displayTee = tee === "yellow" || tee === "white" ? tee : "white";
+                              return (
+                                <>
+                                  <p>
+                                    SI {guide.strokeIndex} · {guide.distanceMeters[displayTee]}m
+                                  </p>
+                                  <details className="mt-1">
+                                    <summary className="cursor-pointer font-semibold text-slate-700">
+                                      Tip
+                                    </summary>
+                                    <p className="mt-1">Hazards: {guide.hazards}</p>
+                                    <p className="mt-1">Plan: {guide.strategy}</p>
+                                  </details>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-2 py-2">
+                        {(() => {
+                          const guide = isErpmCourseName(course) ? getErpmHoleGuide(hole.holeNumber) : undefined;
+                          return (
                         <input
                           type="number"
                           min={2}
@@ -455,8 +557,10 @@ export function RoundEntryForm({
                             )
                           }
                           className="w-20 rounded-lg border border-slate-300 px-2 py-1"
-                          placeholder="-"
+                          placeholder={guide ? `${guide.par}` : "-"}
                         />
+                          );
+                        })()}
                       </td>
                       <td className="px-2 py-2">
                         <input
@@ -663,7 +767,12 @@ export function RoundEntryForm({
                       {round.totalScore - round.par})
                     </p>
                     <p className="text-xs text-slate-500">
-                      {round.date} · {round.holes} holes · {round.putts} putts · {round.wedgeShots.length} wedges
+                      {round.date}
+                      {round.tee
+                        ? ` · ${round.tee.charAt(0).toUpperCase()}${round.tee.slice(1)}`
+                        : ""}{" "}
+                      · {round.holes} holes · {round.putts} putts ·{" "}
+                      {round.wedgeShots.length} wedges
                     </p>
                   </div>
                   <button
