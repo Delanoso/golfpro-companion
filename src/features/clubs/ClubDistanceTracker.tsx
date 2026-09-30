@@ -28,6 +28,7 @@ export function ClubDistanceTracker({
   onChangeSelectedClubs,
   onDeleteShot,
 }: ClubDistanceTrackerProps) {
+  const [isClubSettingsOpen, setIsClubSettingsOpen] = useState(true);
   const [date, setDate] = useState(todayIsoDate());
   const [club, setClub] = useState<ClubName | "">("");
   const [distanceInput, setDistanceInput] = useState<number | "">("");
@@ -107,39 +108,52 @@ export function ClubDistanceTracker({
               Selected: {selectedClubs.length} / {clubOptions.length}
             </p>
           </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={setAllClubs}
-              className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700"
-            >
-              Select all
-            </button>
-            <button
-              type="button"
-              onClick={clearAllClubs}
-              className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700"
-            >
-              Clear
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsClubSettingsOpen((current) => !current)}
+            className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700"
+            aria-expanded={isClubSettingsOpen}
+          >
+            {isClubSettingsOpen ? "Collapse" : "Expand"}
+          </button>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {clubOptions.map((clubOption) => (
-            <label
-              key={clubOption}
-              className="flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-2 text-sm"
-            >
-              <input
-                type="checkbox"
-                checked={selectedClubSet.has(clubOption)}
-                onChange={() => toggleClub(clubOption)}
-              />
-              <span className="text-slate-700">{formatClubDisplayName(clubOption)}</span>
-            </label>
-          ))}
-        </div>
+        {isClubSettingsOpen && (
+          <>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={setAllClubs}
+                className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700"
+              >
+                Select all
+              </button>
+              <button
+                type="button"
+                onClick={clearAllClubs}
+                className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700"
+              >
+                Clear
+              </button>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {clubOptions.map((clubOption) => (
+                <label
+                  key={clubOption}
+                  className="flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-2 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedClubSet.has(clubOption)}
+                    onChange={() => toggleClub(clubOption)}
+                  />
+                  <span className="text-slate-700">{formatClubDisplayName(clubOption)}</span>
+                </label>
+              ))}
+            </div>
+          </>
+        )}
       </article>
 
       <form onSubmit={submitShot} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
