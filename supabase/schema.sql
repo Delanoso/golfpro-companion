@@ -42,6 +42,22 @@ alter table public.leagues enable row level security;
 alter table public.league_members enable row level security;
 alter table public.league_rounds enable row level security;
 
+create or replace function public.is_league_member(target_league_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.league_members lm
+    where lm.league_id = target_league_id
+      and lm.user_id = auth.uid()
+  );
+$$;
+
+grant execute on function public.is_league_member(uuid) to authenticated;
+
 -- League access: users can create leagues they own.
 drop policy if exists leagues_insert_own on public.leagues;
 create policy leagues_insert_own
@@ -63,14 +79,7 @@ create policy league_members_select_member
 on public.league_members
 for select
 to authenticated
-using (
-  exists (
-    select 1
-    from public.league_members lm
-    where lm.league_id = public.league_members.league_id
-      and lm.user_id = auth.uid()
-  )
-);
+using (public.is_league_member(league_id));
 
 -- Members: users can insert themselves into leagues (join by invite code done in app).
 drop policy if exists league_members_insert_self on public.league_members;
@@ -94,14 +103,7 @@ create policy league_rounds_select_member
 on public.league_rounds
 for select
 to authenticated
-using (
-  exists (
-    select 1
-    from public.league_members lm
-    where lm.league_id = public.league_rounds.league_id
-      and lm.user_id = auth.uid()
-  )
-);
+using (public.is_league_member(league_id));
 
 -- League rounds: members can add their own linked scorecards.
 drop policy if exists league_rounds_insert_self on public.league_rounds;
@@ -111,10 +113,5 @@ for insert
 to authenticated
 with check (
   auth.uid() = user_id
-  and exists (
-    select 1
-    from public.league_members lm
-    where lm.league_id = public.league_rounds.league_id
-      and lm.user_id = auth.uid()
-  )
+  and public.is_league_member(league_id)
 );
