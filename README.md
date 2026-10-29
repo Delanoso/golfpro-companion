@@ -63,6 +63,13 @@ NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=...
 ```
 
+Optional monitoring:
+
+```bash
+VITE_SENTRY_DSN=...
+VITE_SENTRY_TRACES_SAMPLE_RATE=0.1
+```
+
 ## Supabase Setup
 
 Run `supabase/schema.sql` in the Supabase SQL Editor.
