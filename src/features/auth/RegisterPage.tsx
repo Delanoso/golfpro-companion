@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { ensurePlayerProfile } from "../../services/playerProfileService";
 
 export function RegisterPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -12,6 +13,7 @@ export function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const nextPath = new URLSearchParams(location.search).get("next") || "/app";
 
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -55,7 +57,7 @@ export function RegisterPage() {
         return;
       }
       setLoading(false);
-      navigate("/app", { replace: true });
+      navigate(nextPath, { replace: true });
       return;
     }
 
@@ -131,7 +133,10 @@ export function RegisterPage() {
 
         <p className="mt-4 text-sm text-slate-600">
           Already registered?{" "}
-          <Link to="/login" className="font-semibold text-emerald-700">
+          <Link
+            to={`/login${nextPath !== "/app" ? `?next=${encodeURIComponent(nextPath)}` : ""}`}
+            className="font-semibold text-emerald-700"
+          >
             Login
           </Link>
         </p>

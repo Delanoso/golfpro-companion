@@ -72,6 +72,7 @@ export const initialAppData: AppData = {
   rounds: [],
   clubShots: [],
   clubBag: defaultClubBag,
+  bettingGames: [],
   leagueRounds: [],
   leagueSettings: {
     players: ["You", "Friend 1", "Friend 2", "Friend 3"],

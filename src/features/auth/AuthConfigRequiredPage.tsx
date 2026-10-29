@@ -13,6 +13,10 @@ export function AuthConfigRequiredPage() {
         <p className="mt-3 text-xs text-slate-500">
           Add these values to your `.env` file and restart the server.
         </p>
+        <p className="mt-2 text-xs text-slate-500">
+          For shared leagues, run the SQL script at <code>supabase/schema.sql</code> in Supabase SQL
+          Editor.
+        </p>
       </section>
     </main>
   );

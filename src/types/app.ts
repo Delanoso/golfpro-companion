@@ -1,6 +1,7 @@
 export type HoleCount = 9 | 18;
 export type DistanceUnit = "meters" | "yards";
 export type AppSection = "golf-strategy";
+export type BettingGameType = "skins" | "nassau";
 
 export type WedgeShot = {
   id: string;
@@ -115,6 +116,17 @@ export type AppData = {
   rounds: RoundEntry[];
   clubShots: ClubShot[];
   clubBag: ClubName[];
+  bettingGames: Array<{
+    id: string;
+    type: BettingGameType;
+    date: string;
+    title: string;
+    players: string[];
+    holes: HoleCount;
+    stakePerPoint: number;
+    summary: string;
+    details?: string;
+  }>;
   leagueRounds: LeagueRound[];
   leagueSettings: LeagueSettings;
 };

@@ -1,4 +1,4 @@
-export type AppTab = "dashboard" | "rounds" | "clubs" | "strategy" | "league";
+export type AppTab = "dashboard" | "rounds" | "clubs" | "strategy" | "games" | "league";
 
 type AppTabBarProps = {
   activeTab: AppTab;
@@ -11,6 +11,7 @@ const tabs: Array<{ id: AppTab; label: string }> = [
   { id: "rounds", label: "Rounds" },
   { id: "strategy", label: "Caddy" },
   { id: "clubs", label: "Clubs" },
+  { id: "games", label: "Betting" },
   { id: "league", label: "League" },
 ];
 

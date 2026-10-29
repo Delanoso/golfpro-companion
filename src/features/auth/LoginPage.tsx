@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const nextPath = new URLSearchParams(location.search).get("next") || "/app";
 
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -28,7 +30,7 @@ export function LoginPage() {
       return;
     }
 
-    navigate("/app", { replace: true });
+    navigate(nextPath, { replace: true });
   };
 
   return (
@@ -73,7 +75,10 @@ export function LoginPage() {
 
         <p className="mt-4 text-sm text-slate-600">
           New player?{" "}
-          <Link to="/register" className="font-semibold text-emerald-700">
+          <Link
+            to={`/register${nextPath !== "/app" ? `?next=${encodeURIComponent(nextPath)}` : ""}`}
+            className="font-semibold text-emerald-700"
+          >
             Create an account
           </Link>
         </p>
