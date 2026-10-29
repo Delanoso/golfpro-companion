@@ -20,10 +20,14 @@ type BettingGamesManagerProps = {
   onDeleteGame: (id: string) => void;
 };
 
-const createHoleScores = (holes: HoleCount, players: string[]): Record<string, number[]> => {
+const createHoleValues = (
+  holes: HoleCount,
+  players: string[],
+  defaultValue: number,
+): Record<string, number[]> => {
   const next: Record<string, number[]> = {};
   players.forEach((player) => {
-    next[player] = Array.from({ length: holes }, () => 4);
+    next[player] = Array.from({ length: holes }, () => defaultValue);
   });
   return next;
 };
@@ -35,7 +39,10 @@ export function BettingGamesManager({ games, onAddGame, onDeleteGame }: BettingG
   const [holes, setHoles] = useState<HoleCount>(18);
   const [stakePerPoint, setStakePerPoint] = useState(20);
   const [scores, setScores] = useState<Record<string, number[]>>(
-    createHoleScores(18, ["You", "Friend 1", "Friend 2", "Friend 3"]),
+    createHoleValues(18, ["You", "Friend 1", "Friend 2", "Friend 3"], 4),
+  );
+  const [putts, setPutts] = useState<Record<string, number[]>>(
+    createHoleValues(18, ["You", "Friend 1", "Friend 2", "Friend 3"], 2),
   );
 
   const players = useMemo(
@@ -61,10 +68,31 @@ export function BettingGamesManager({ games, onAddGame, onDeleteGame }: BettingG
       });
       return next;
     });
+
+    setPutts((current) => {
+      const next = { ...current };
+      players.forEach((player) => {
+        const row = next[player] ?? [];
+        next[player] = Array.from({ length: holes }, (_value, index) => row[index] ?? 2);
+      });
+      Object.keys(next).forEach((player) => {
+        if (!players.includes(player)) {
+          delete next[player];
+        }
+      });
+      return next;
+    });
   };
 
   const updateScore = (player: string, holeIndex: number, value: number) => {
     setScores((current) => ({
+      ...current,
+      [player]: current[player].map((score, index) => (index === holeIndex ? value : score)),
+    }));
+  };
+
+  const updatePutts = (player: string, holeIndex: number, value: number) => {
+    setPutts((current) => ({
       ...current,
       [player]: current[player].map((score, index) => (index === holeIndex ? value : score)),
     }));
@@ -126,6 +154,47 @@ export function BettingGamesManager({ games, onAddGame, onDeleteGame }: BettingG
     };
   }, [holes, players, scores]);
 
+  const snakeResult = useMemo(() => {
+    if (players.length < 2) return null;
+    const snakes: Record<string, number> = Object.fromEntries(players.map((player) => [player, 0]));
+    let carry = 0;
+
+    for (let hole = 0; hole < holes; hole += 1) {
+      const holePutts = players.map((player) => ({ player, putts: putts[player]?.[hole] ?? 2 }));
+      const worst = Math.max(...holePutts.map((row) => row.putts));
+      if (worst < 3) {
+        continue;
+      }
+      carry += 1;
+      const losers = holePutts.filter((row) => row.putts === worst);
+      if (losers.length === 1) {
+        snakes[losers[0].player] += carry;
+        carry = 0;
+      }
+    }
+
+    const penalties = Object.fromEntries(
+      players.map((player) => [player, Number((snakes[player] * stakePerPoint).toFixed(2))]),
+    );
+    return { snakes, penalties, unclaimed: carry };
+  }, [holes, players, putts, stakePerPoint]);
+
+  const matchPlayResult = useMemo(() => {
+    if (players.length < 2) return null;
+    const [playerA, playerB] = players;
+    let winsA = 0;
+    let winsB = 0;
+    for (let hole = 0; hole < holes; hole += 1) {
+      const scoreA = scores[playerA]?.[hole] ?? 99;
+      const scoreB = scores[playerB]?.[hole] ?? 99;
+      if (scoreA < scoreB) winsA += 1;
+      if (scoreB < scoreA) winsB += 1;
+    }
+    const diff = Math.abs(winsA - winsB);
+    const leader = winsA === winsB ? "All square" : winsA > winsB ? `${playerA} ${diff} up` : `${playerB} ${diff} up`;
+    return { playerA, playerB, winsA, winsB, leader };
+  }, [holes, players, scores]);
+
   const submitGame = (event: React.FormEvent) => {
     event.preventDefault();
     if (players.length < 2) return;
@@ -163,6 +232,42 @@ export function BettingGamesManager({ games, onAddGame, onDeleteGame }: BettingG
         summary: `Front: ${nassauResult.front} · Back: ${nassauResult.back} · Overall: ${nassauResult.overall}`,
         details: `${nassauResult.playerA} (${nassauResult.totalA}) vs ${nassauResult.playerB} (${nassauResult.totalB})`,
       });
+      return;
+    }
+
+    if (gameType === "snake" && snakeResult) {
+      const summary = players
+        .map((player) => `${player}: ${snakeResult.snakes[player]} snakes`)
+        .join(" · ");
+      const details = players
+        .map((player) => `${player}: -${snakeResult.penalties[player].toFixed(2)}`)
+        .join(" · ");
+      onAddGame({
+        id: createId(),
+        type: "snake",
+        date,
+        title: `Snake (${holes} holes)`,
+        players,
+        holes,
+        stakePerPoint,
+        summary,
+        details: `Penalties (${stakePerPoint}/snake): ${details}${snakeResult.unclaimed ? ` · ${snakeResult.unclaimed} unclaimed carry snake(s)` : ""}`,
+      });
+      return;
+    }
+
+    if (gameType === "match-play" && matchPlayResult) {
+      onAddGame({
+        id: createId(),
+        type: "match-play",
+        date,
+        title: `Match Play (${holes} holes)`,
+        players: [matchPlayResult.playerA, matchPlayResult.playerB],
+        holes,
+        stakePerPoint,
+        summary: `${matchPlayResult.playerA} holes won: ${matchPlayResult.winsA} · ${matchPlayResult.playerB} holes won: ${matchPlayResult.winsB}`,
+        details: `Result: ${matchPlayResult.leader}`,
+      });
     }
   };
 
@@ -171,7 +276,7 @@ export function BettingGamesManager({ games, onAddGame, onDeleteGame }: BettingG
       <form onSubmit={submitGame} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <h3 className="text-base font-semibold text-slate-900">Betting Games</h3>
         <p className="mt-1 text-sm text-slate-600">
-          Calculate results for Skins and Nassau, then save the result card.
+          Calculate results for Skins, Nassau, Snake, and Match Play, then save the result card.
         </p>
 
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -193,6 +298,8 @@ export function BettingGamesManager({ games, onAddGame, onDeleteGame }: BettingG
             >
               <option value="skins">Skins</option>
               <option value="nassau">Nassau (first 2 players)</option>
+              <option value="snake">Snake</option>
+              <option value="match-play">Match Play (first 2 players)</option>
             </select>
           </label>
           <label className="text-sm sm:col-span-2">
@@ -263,6 +370,43 @@ export function BettingGamesManager({ games, onAddGame, onDeleteGame }: BettingG
           </table>
         </div>
 
+        {gameType === "snake" && (
+          <div className="mt-3 overflow-x-auto rounded-xl bg-slate-50 p-3">
+            <p className="mb-2 text-sm font-semibold text-slate-800">Enter putts per hole</p>
+            <table className="min-w-full text-xs">
+              <thead>
+                <tr className="text-left text-slate-500">
+                  <th className="py-1 pr-2">Player</th>
+                  {Array.from({ length: holes }, (_value, index) => (
+                    <th key={index} className="py-1 px-1 text-center">
+                      {index + 1}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {players.map((player) => (
+                  <tr key={`putts-${player}`} className="border-t border-slate-200">
+                    <td className="py-1 pr-2 font-semibold text-slate-700">{player}</td>
+                    {Array.from({ length: holes }, (_value, index) => (
+                      <td key={`${player}-putt-${index}`} className="px-1 py-1">
+                        <input
+                          type="number"
+                          min={0}
+                          max={6}
+                          value={putts[player]?.[index] ?? 2}
+                          onChange={(event) => updatePutts(player, index, Number(event.target.value))}
+                          className="w-12 rounded border border-slate-300 px-1 py-1 text-center"
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         {gameType === "skins" && skinsResult && (
           <p className="mt-3 text-sm text-slate-700">
             Result:{" "}
@@ -274,6 +418,20 @@ export function BettingGamesManager({ games, onAddGame, onDeleteGame }: BettingG
         {gameType === "nassau" && nassauResult && (
           <p className="mt-3 text-sm text-slate-700">
             Result: Front {nassauResult.front} · Back {nassauResult.back} · Overall {nassauResult.overall}
+          </p>
+        )}
+
+        {gameType === "snake" && snakeResult && (
+          <p className="mt-3 text-sm text-slate-700">
+            Result:{" "}
+            {players.map((player) => `${player} ${snakeResult.snakes[player]}`).join(" · ")}{" "}
+            {snakeResult.unclaimed ? `· ${snakeResult.unclaimed} carry snake(s) unclaimed` : ""}
+          </p>
+        )}
+
+        {gameType === "match-play" && matchPlayResult && (
+          <p className="mt-3 text-sm text-slate-700">
+            Result: {matchPlayResult.leader}
           </p>
         )}
 
