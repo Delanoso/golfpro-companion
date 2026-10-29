@@ -15,21 +15,16 @@ import { ensurePlayerProfile } from "./services/playerProfileService";
 
 export function AppRouter() {
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supabase) {
-      setLoading(false);
+      setAuthChecked(true);
       return;
     }
 
     let active = true;
-    const loadTimeout = window.setTimeout(() => {
-      if (!active) return;
-      setLoading(false);
-      setAuthError("Authentication took too long. You can still try logging in.");
-    }, 8000);
 
     supabase.auth
       .getSession()
@@ -47,21 +42,19 @@ export function AppRouter() {
       })
       .finally(() => {
         if (!active) return;
-        window.clearTimeout(loadTimeout);
-        setLoading(false);
+        setAuthChecked(true);
       });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
-      setLoading(false);
+      setAuthChecked(true);
       setAuthError(null);
     });
 
     return () => {
       active = false;
-      window.clearTimeout(loadTimeout);
       subscription.unsubscribe();
     };
   }, []);
@@ -77,10 +70,6 @@ export function AppRouter() {
     return <AuthConfigRequiredPage />;
   }
 
-  if (loading) {
-    return <div className="p-5 text-sm text-slate-600">Loading authentication...</div>;
-  }
-
   const signOut = async () => {
     if (!supabase) return;
     await supabase.auth.signOut();
@@ -88,6 +77,11 @@ export function AppRouter() {
 
   return (
     <>
+      {!authChecked && (
+        <div className="bg-slate-100 px-4 py-2 text-xs text-slate-600 ring-1 ring-slate-200">
+          Checking authentication...
+        </div>
+      )}
       {authError && (
         <div className="bg-amber-50 px-4 py-2 text-xs text-amber-800 ring-1 ring-amber-200">
           {authError}
