@@ -8,6 +8,9 @@ import {
   getSharedLeagueRounds,
   joinSharedLeagueByCode,
   linkRoundToLeague,
+  removeLeagueMember,
+  setLeagueState,
+  setMemberRole,
   type SharedLeague,
   type SharedLeagueMember,
   type SharedLeagueRound,
@@ -68,6 +71,11 @@ export function LeagueManager({
   const leaderboard = getLeagueLeaderboard(data);
   const selectedLeague = sharedLeagues.find((league) => league.id === selectedLeagueId) ?? null;
   const displayName = getDisplayName(currentUser);
+  const isLeagueAdmin = Boolean(
+    selectedLeague &&
+      (selectedLeague.ownerId === currentUser.id ||
+        sharedMembers.some((member) => member.userId === currentUser.id && member.role === "admin")),
+  );
 
   const players = data.leagueSettings.players;
 
@@ -224,9 +232,63 @@ export function LeagueManager({
     }
   };
 
+  const toggleLeagueLock = async () => {
+    if (!selectedLeague) return;
+    setSharedError(null);
+    setSharedStatus(null);
+    try {
+      await setLeagueState(selectedLeague.id, { isLocked: !selectedLeague.isLocked });
+      setSharedStatus(selectedLeague.isLocked ? "League unlocked for round linking." : "League locked (read-only).");
+      await refreshSharedLeagues();
+    } catch (error) {
+      setSharedError(error instanceof Error ? error.message : "Unable to update league.");
+    }
+  };
+
+  const toggleLeagueArchive = async () => {
+    if (!selectedLeague) return;
+    setSharedError(null);
+    setSharedStatus(null);
+    try {
+      await setLeagueState(selectedLeague.id, { isArchived: !selectedLeague.isArchived });
+      setSharedStatus(selectedLeague.isArchived ? "League reopened." : "League archived.");
+      await refreshSharedLeagues();
+    } catch (error) {
+      setSharedError(error instanceof Error ? error.message : "Unable to update league.");
+    }
+  };
+
+  const updateMemberRole = async (member: SharedLeagueMember, role: SharedLeagueMember["role"]) => {
+    setSharedError(null);
+    setSharedStatus(null);
+    try {
+      await setMemberRole(member.id, role);
+      setSharedStatus(`${member.displayName} is now ${role}.`);
+      await refreshSelectedLeagueDetails(member.leagueId);
+    } catch (error) {
+      setSharedError(error instanceof Error ? error.message : "Unable to update member role.");
+    }
+  };
+
+  const removeMember = async (member: SharedLeagueMember) => {
+    setSharedError(null);
+    setSharedStatus(null);
+    try {
+      await removeLeagueMember(member.id);
+      setSharedStatus(`${member.displayName} removed from league.`);
+      await refreshSelectedLeagueDetails(member.leagueId);
+    } catch (error) {
+      setSharedError(error instanceof Error ? error.message : "Unable to remove member.");
+    }
+  };
+
   const submitLinkedRound = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!selectedLeagueId || !selectedRoundId) return;
+    if (selectedLeague?.isLocked || selectedLeague?.isArchived) {
+      setSharedError("This league is read-only. Ask an admin to unlock it.");
+      return;
+    }
     const selectedRound = rounds.find((round) => round.id === selectedRoundId);
     if (!selectedRound) {
       setSharedError("Selected scorecard was not found.");
@@ -282,6 +344,27 @@ export function LeagueManager({
         wins: stats.wins,
       }))
       .sort((a, b) => b.wins - a.wins || a.averageScore - b.averageScore);
+  }, [sharedRounds]);
+
+  const challengeLeaderboard = useMemo(() => {
+    const monthKey = todayIsoDate().slice(0, 7);
+    const monthRounds = sharedRounds.filter((row) => row.roundDate.slice(0, 7) === monthKey);
+    const stats = new Map<string, { rounds: number; total: number; best: number }>();
+    monthRounds.forEach((row) => {
+      const current = stats.get(row.displayName) ?? { rounds: 0, total: 0, best: Number.POSITIVE_INFINITY };
+      current.rounds += 1;
+      current.total += row.totalScore;
+      current.best = Math.min(current.best, row.totalScore);
+      stats.set(row.displayName, current);
+    });
+    return Array.from(stats.entries())
+      .map(([player, value]) => ({
+        player,
+        rounds: value.rounds,
+        avg: value.total / value.rounds,
+        best: value.best,
+      }))
+      .sort((left, right) => left.avg - right.avg);
   }, [sharedRounds]);
 
   return (
@@ -353,18 +436,48 @@ export function LeagueManager({
           <div className="mt-3 rounded-xl bg-emerald-50 p-3 ring-1 ring-emerald-200">
             <p className="text-sm font-semibold text-emerald-900">{selectedLeague.name}</p>
             <p className="mt-1 text-xs text-emerald-900/90">
+              Status:{" "}
+              <span className="font-semibold">
+                {selectedLeague.isArchived
+                  ? "Archived"
+                  : selectedLeague.isLocked
+                    ? "Locked (read-only)"
+                    : "Active"}
+              </span>
+            </p>
+            <p className="mt-1 text-xs text-emerald-900/90">
               Invite code: <span className="font-semibold">{selectedLeague.inviteCode}</span>
             </p>
             <p className="mt-1 break-all text-xs text-emerald-900/90">
               Link: {window.location.origin}/join/{selectedLeague.inviteCode}
             </p>
-            <button
-              type="button"
-              onClick={() => void copyInviteLink()}
-              className="mt-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white"
-            >
-              Copy invite link
-            </button>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void copyInviteLink()}
+                className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white"
+              >
+                Copy invite link
+              </button>
+              {isLeagueAdmin && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void toggleLeagueLock()}
+                    className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200"
+                  >
+                    {selectedLeague.isLocked ? "Unlock league" : "Lock league"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void toggleLeagueArchive()}
+                    className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200"
+                  >
+                    {selectedLeague.isArchived ? "Reopen league" : "Archive league"}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         )}
 
@@ -388,11 +501,14 @@ export function LeagueManager({
             </select>
             <button
               type="submit"
-              disabled={!selectedRoundId}
+              disabled={!selectedRoundId || selectedLeague.isLocked || selectedLeague.isArchived}
               className="mt-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
             >
               Link scorecard
             </button>
+            {(selectedLeague.isLocked || selectedLeague.isArchived) && (
+              <p className="mt-2 text-xs text-rose-600">League is read-only. Ask an admin to unlock it.</p>
+            )}
           </form>
         )}
 
@@ -402,11 +518,41 @@ export function LeagueManager({
               <p className="text-sm font-semibold text-slate-800">Members ({sharedMembers.length})</p>
               <ul className="mt-2 space-y-1 text-sm text-slate-700">
                 {sharedMembers.map((member) => (
-                  <li key={member.id} className="flex justify-between">
-                    <span>{member.displayName}</span>
-                    <span className="text-xs text-slate-500">
-                      {member.userId === selectedLeague.ownerId ? "Owner" : "Member"}
-                    </span>
+                  <li key={member.id} className="rounded-lg bg-white px-2 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>{member.displayName}</span>
+                      <span className="text-xs text-slate-500">
+                        {member.userId === selectedLeague.ownerId ? "Owner" : member.role}
+                      </span>
+                    </div>
+                    {isLeagueAdmin && member.userId !== selectedLeague.ownerId && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {member.role === "member" ? (
+                          <button
+                            type="button"
+                            onClick={() => void updateMemberRole(member, "admin")}
+                            className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700"
+                          >
+                            Make admin
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => void updateMemberRole(member, "member")}
+                            className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700"
+                          >
+                            Remove admin
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => void removeMember(member)}
+                          className="rounded-md bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -436,6 +582,28 @@ export function LeagueManager({
 
         {selectedLeague && (
           <div className="mt-3 rounded-xl bg-slate-50 p-3">
+            <p className="text-sm font-semibold text-slate-800">Challenge mode (this month)</p>
+            {challengeLeaderboard.length === 0 ? (
+              <p className="mt-2 text-xs text-slate-600">No rounds yet this month.</p>
+            ) : (
+              <ul className="mt-2 space-y-1 text-xs text-slate-700">
+                {challengeLeaderboard.map((row, index) => (
+                  <li key={row.player} className="flex justify-between">
+                    <span>
+                      #{index + 1} {row.player}
+                    </span>
+                    <span>
+                      Avg {row.avg.toFixed(1)} · Best {row.best} · {row.rounds} round(s)
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {selectedLeague && (
+          <div className="mt-3 rounded-xl bg-slate-50 p-3">
             <p className="text-sm font-semibold text-slate-800">Linked scorecards</p>
             {sharedRounds.length === 0 ? (
               <p className="mt-2 text-xs text-slate-600">No scorecards linked yet.</p>
@@ -446,9 +614,12 @@ export function LeagueManager({
                     <span>
                       {row.roundDate} · {row.displayName} · {row.course}
                     </span>
-                    <span>
+                    <span className="text-right">
                       Score {row.totalScore} ({row.totalScore - row.par >= 0 ? "+" : ""}
                       {row.totalScore - row.par})
+                      <span className="block text-[11px] text-slate-500">
+                        Linked {new Date(row.createdAt).toLocaleString()}
+                      </span>
                     </span>
                   </li>
                 ))}

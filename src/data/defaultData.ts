@@ -72,6 +72,18 @@ export const initialAppData: AppData = {
   rounds: [],
   clubShots: [],
   clubBag: defaultClubBag,
+  profile: {
+    onboardingCompleted: false,
+    miniTourCompleted: false,
+    handicap: "",
+    homeCourse: "",
+    preferredTee: "",
+    publicShareEnabled: false,
+    shareCode: "",
+  },
+  syncMeta: {
+    lastModifiedAt: new Date(0).toISOString(),
+  },
   bettingGames: [],
   leagueRounds: [],
   leagueSettings: {

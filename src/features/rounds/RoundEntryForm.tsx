@@ -28,6 +28,7 @@ type HoleScoreDraft = {
   par: number | "";
   strokes: number | "";
   putts: number | "";
+  fir: "yes" | "no" | "";
   gir: "yes" | "no" | "";
   wedgeDistance: number | "";
   wedgeMiss: WedgeShot["miss"] | "";
@@ -42,6 +43,7 @@ function createHoleDraft(holeNumber: number): HoleScoreDraft {
     par: "",
     strokes: "",
     putts: "",
+    fir: "",
     gir: "",
     wedgeDistance: "",
     wedgeMiss: "",
@@ -75,6 +77,8 @@ export function RoundEntryForm({
   const [date, setDate] = useState(todayIsoDate());
   const [course, setCourse] = useState("");
   const [holes, setHoles] = useState<HoleCount | "">("");
+  const [entryMode, setEntryMode] = useState<"quick" | "table">("quick");
+  const [activeHole, setActiveHole] = useState(1);
   const [notes, setNotes] = useState("");
   const [holeDrafts, setHoleDrafts] = useState<HoleScoreDraft[]>([]);
   const [draftRestored, setDraftRestored] = useState(false);
@@ -132,6 +136,7 @@ export function RoundEntryForm({
 
   useEffect(() => {
     setHoleDrafts((current) => ensureHoleDrafts(holes, current));
+    setActiveHole(1);
   }, [holes]);
 
   useEffect(() => {
@@ -142,6 +147,7 @@ export function RoundEntryForm({
         hole.par !== "" ||
         hole.strokes !== "" ||
         hole.putts !== "" ||
+        hole.fir !== "" ||
         hole.gir !== "" ||
         hole.wedgeDistance !== "" ||
         hole.wedgeMiss !== "" ||
@@ -223,8 +229,8 @@ export function RoundEntryForm({
     if (holes === "") return "Please select 9 or 18 holes.";
 
     for (const hole of holeDrafts) {
-      if (hole.par === "" || hole.strokes === "" || hole.putts === "" || hole.gir === "") {
-        return `Hole ${hole.holeNumber}: par, strokes, putts, and GIR are required.`;
+      if (hole.par === "" || hole.strokes === "" || hole.putts === "" || hole.fir === "" || hole.gir === "") {
+        return `Hole ${hole.holeNumber}: par, strokes, putts, FIR, and GIR are required.`;
       }
       if (hole.putts > hole.strokes) {
         return `Hole ${hole.holeNumber}: putts cannot be more than strokes.`;
@@ -314,6 +320,7 @@ export function RoundEntryForm({
         par: clamp(Number(hole.par), 2, 7),
         strokes: clamp(Number(hole.strokes), 1, 20),
         putts: clamp(Number(hole.putts), 0, 10),
+        fir: hole.fir === "yes",
         gir: hole.gir === "yes",
         // Keep first-shot fields for backward compatibility.
         wedgeDistanceYards: firstShot?.distanceYards,
@@ -373,6 +380,11 @@ export function RoundEntryForm({
             </button>
           )}
         </div>
+        {draftRestored && (
+          <div className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">
+            Recovered your saved round draft. Continue where you left off.
+          </div>
+        )}
 
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="min-w-0 text-sm">
@@ -422,11 +434,278 @@ export function RoundEntryForm({
         </label>
 
         <div className="mt-4 rounded-xl bg-slate-50 p-3">
-          <p className="text-sm font-semibold text-slate-800">
-            Hole-by-hole scorecard (add putts and optional wedge shots per hole)
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-slate-800">
+              Hole-by-hole scorecard (add putts and optional wedge shots per hole)
+            </p>
+            <div className="flex rounded-lg bg-white p-1 ring-1 ring-slate-200">
+              <button
+                type="button"
+                onClick={() => setEntryMode("quick")}
+                className={`rounded-md px-2 py-1 text-xs font-semibold ${
+                  entryMode === "quick" ? "bg-emerald-600 text-white" : "text-slate-700"
+                }`}
+              >
+                Quick
+              </button>
+              <button
+                type="button"
+                onClick={() => setEntryMode("table")}
+                className={`rounded-md px-2 py-1 text-xs font-semibold ${
+                  entryMode === "table" ? "bg-emerald-600 text-white" : "text-slate-700"
+                }`}
+              >
+                Table
+              </button>
+            </div>
+          </div>
           {holeDrafts.length === 0 ? (
             <p className="mt-2 text-xs text-slate-600">Select 9 or 18 holes to begin scorecard entry.</p>
+          ) : entryMode === "quick" ? (
+            <>
+              {(() => {
+                const hole = holeDrafts.find((item) => item.holeNumber === activeHole) ?? holeDrafts[0];
+                if (!hole) return null;
+                return (
+                  <div className="mt-3 space-y-3 rounded-xl bg-white p-3 ring-1 ring-slate-200">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-slate-800">
+                        Hole {hole.holeNumber} / {holeDrafts.length}
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setActiveHole((current) => Math.max(1, current - 1))}
+                          className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700"
+                        >
+                          Prev
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setActiveHole((current) => Math.min(holeDrafts.length, current + 1))
+                          }
+                          className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      <label className="text-xs">
+                        <span className="text-slate-600">Par</span>
+                        <select
+                          value={hole.par}
+                          onChange={(event) =>
+                            updateHoleDraft(
+                              hole.holeNumber,
+                              "par",
+                              event.target.value === "" ? "" : Number(event.target.value),
+                            )
+                          }
+                          className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2"
+                        >
+                          <option value="">-</option>
+                          {parOptions.map((value) => (
+                            <option key={value} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="text-xs">
+                        <span className="text-slate-600">Strokes</span>
+                        <select
+                          value={hole.strokes}
+                          onChange={(event) =>
+                            updateHoleDraft(
+                              hole.holeNumber,
+                              "strokes",
+                              event.target.value === "" ? "" : Number(event.target.value),
+                            )
+                          }
+                          className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2"
+                        >
+                          <option value="">-</option>
+                          {strokeOptions.map((value) => (
+                            <option key={value} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="text-xs">
+                        <span className="text-slate-600">Putts</span>
+                        <select
+                          value={hole.putts}
+                          onChange={(event) =>
+                            updateHoleDraft(
+                              hole.holeNumber,
+                              "putts",
+                              event.target.value === "" ? "" : Number(event.target.value),
+                            )
+                          }
+                          className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2"
+                        >
+                          <option value="">-</option>
+                          {puttOptions.map((value) => (
+                            <option key={value} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="text-xs">
+                        <span className="text-slate-600">FIR</span>
+                        <select
+                          value={hole.fir}
+                          onChange={(event) =>
+                            updateHoleDraft(hole.holeNumber, "fir", event.target.value as "yes" | "no" | "")
+                          }
+                          className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2"
+                        >
+                          <option value="">-</option>
+                          <option value="yes">Yes</option>
+                          <option value="no">No</option>
+                        </select>
+                      </label>
+                      <label className="text-xs">
+                        <span className="text-slate-600">GIR</span>
+                        <select
+                          value={hole.gir}
+                          onChange={(event) =>
+                            updateHoleDraft(hole.holeNumber, "gir", event.target.value as "yes" | "no" | "")
+                          }
+                          className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2"
+                        >
+                          <option value="">-</option>
+                          <option value="yes">Yes</option>
+                          <option value="no">No</option>
+                        </select>
+                      </label>
+                      <label className="text-xs">
+                        <span className="text-slate-600">Wedge ({distanceUnitLabel(distanceUnit)})</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={220}
+                          value={hole.wedgeDistance}
+                          onChange={(event) =>
+                            updateHoleDraft(
+                              hole.holeNumber,
+                              "wedgeDistance",
+                              event.target.value === "" ? "" : Number(event.target.value),
+                            )
+                          }
+                          className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2"
+                          placeholder="-"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <label className="text-xs">
+                        <span className="text-slate-600">Wedge shot</span>
+                        <select
+                          value={hole.wedgeMiss}
+                          onChange={(event) =>
+                            updateHoleDraft(
+                              hole.holeNumber,
+                              "wedgeMiss",
+                              event.target.value === "" ? "" : (event.target.value as WedgeShot["miss"]),
+                            )
+                          }
+                          className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2"
+                        >
+                          <option value="">-</option>
+                          <option value="left">Miss left</option>
+                          <option value="right">Miss right</option>
+                          <option value="over">Over</option>
+                          <option value="short">Short</option>
+                          <option value="on-green">On green</option>
+                        </select>
+                      </label>
+                      {hole.wedge2Enabled && (
+                        <label className="text-xs">
+                          <span className="text-slate-600">2nd wedge ({distanceUnitLabel(distanceUnit)})</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={220}
+                            value={hole.wedge2Distance}
+                            onChange={(event) =>
+                              updateHoleDraft(
+                                hole.holeNumber,
+                                "wedge2Distance",
+                                event.target.value === "" ? "" : Number(event.target.value),
+                              )
+                            }
+                            className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2"
+                            placeholder="2nd wedge"
+                          />
+                        </label>
+                      )}
+                      {hole.wedge2Enabled && (
+                        <label className="text-xs">
+                          <span className="text-slate-600">2nd wedge shot</span>
+                          <select
+                            value={hole.wedge2Miss}
+                            onChange={(event) =>
+                              updateHoleDraft(
+                                hole.holeNumber,
+                                "wedge2Miss",
+                                event.target.value === "" ? "" : (event.target.value as WedgeShot["miss"]),
+                              )
+                            }
+                            className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2"
+                          >
+                            <option value="">-</option>
+                            <option value="left">Miss left</option>
+                            <option value="right">Miss right</option>
+                            <option value="over">Over</option>
+                            <option value="short">Short</option>
+                            <option value="on-green">On green</option>
+                          </select>
+                        </label>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {!hole.wedge2Enabled ? (
+                        <button
+                          type="button"
+                          onClick={() => enableSecondWedge(hole.holeNumber)}
+                          className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700"
+                        >
+                          + 2nd wedge
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => removeSecondWedge(hole.holeNumber)}
+                          className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700"
+                        >
+                          Remove 2nd
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const previousHole = holeDrafts.find((item) => item.holeNumber === hole.holeNumber - 1);
+                          if (!previousHole) return;
+                          updateHoleDraft(hole.holeNumber, "par", previousHole.par);
+                          updateHoleDraft(hole.holeNumber, "putts", previousHole.putts);
+                        }}
+                        className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700"
+                      >
+                        Same par + putts as previous
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
           ) : (
             <div className="mt-2 overflow-x-auto">
               <table className="min-w-full text-sm">
@@ -436,6 +715,7 @@ export function RoundEntryForm({
                     <th className="px-2 py-2">Par</th>
                     <th className="px-2 py-2">Strokes</th>
                     <th className="px-2 py-2">Putts</th>
+                    <th className="px-2 py-2">FIR</th>
                     <th className="px-2 py-2">GIR</th>
                     <th className="px-2 py-2">Wedge ({distanceUnitLabel(distanceUnit)})</th>
                     <th className="px-2 py-2">Wedge shot</th>
@@ -503,6 +783,23 @@ export function RoundEntryForm({
                               {value}
                             </option>
                           ))}
+                        </select>
+                      </td>
+                      <td className="px-2 py-2">
+                        <select
+                          value={hole.fir}
+                          onChange={(event) =>
+                            updateHoleDraft(
+                              hole.holeNumber,
+                              "fir",
+                              event.target.value as "yes" | "no" | "",
+                            )
+                          }
+                          className="w-24 rounded-lg border border-slate-300 px-2 py-1"
+                        >
+                          <option value="">-</option>
+                          <option value="yes">Yes</option>
+                          <option value="no">No</option>
                         </select>
                       </td>
                       <td className="px-2 py-2">

@@ -4,8 +4,12 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import App from "./App";
 import { AuthConfigRequiredPage } from "./features/auth/AuthConfigRequiredPage";
 import { LoginPage } from "./features/auth/LoginPage";
+import { ResetPasswordPage } from "./features/auth/ResetPasswordPage";
 import { RegisterPage } from "./features/auth/RegisterPage";
+import { PrivacyPage } from "./features/legal/PrivacyPage";
+import { TermsPage } from "./features/legal/TermsPage";
 import { JoinLeaguePage } from "./features/league/JoinLeaguePage";
+import { PublicProfilePage } from "./features/profile/PublicProfilePage";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import { ensurePlayerProfile } from "./services/playerProfileService";
 
@@ -63,6 +67,10 @@ export function AppRouter() {
     <Routes>
       <Route path="/login" element={session ? <Navigate to="/app" replace /> : <LoginPage />} />
       <Route path="/register" element={session ? <Navigate to="/app" replace /> : <RegisterPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/share/:shareCode" element={<PublicProfilePage />} />
       <Route
         path="/join/:inviteCode"
         element={

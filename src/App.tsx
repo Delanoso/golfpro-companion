@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { AppSectionBar } from "./components/AppSectionBar";
 import { AppTabBar, type AppTab } from "./components/AppTabBar";
@@ -7,9 +7,14 @@ import { ClubDistanceTracker } from "./features/clubs/ClubDistanceTracker";
 import { AnalyticsDashboard } from "./features/dashboard/AnalyticsDashboard";
 import { BettingGamesManager } from "./features/games/BettingGamesManager";
 import { LeagueManager } from "./features/league/LeagueManager";
+import { MiniTourModal } from "./features/onboarding/MiniTourModal";
+import { OnboardingWizard } from "./features/onboarding/OnboardingWizard";
 import { RoundEntryForm } from "./features/rounds/RoundEntryForm";
+import { AccountSettingsModal } from "./features/settings/AccountSettingsModal";
 import { SmartCaddy } from "./features/strategy/SmartCaddy";
 import { useLocalStorageState } from "./hooks/useLocalStorageState";
+import { loadPlayerAppData, savePlayerAppData, subscribeToPlayerAppData } from "./services/appDataSyncService";
+import { getPlayerProfile } from "./services/playerProfileService";
 import type {
   AppSection,
   AppData,
@@ -24,10 +29,27 @@ type AppProps = {
   onSignOut: () => Promise<void>;
 };
 
+const parseIsoMs = (value: string | undefined | null) => {
+  if (!value) return 0;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : 0;
+};
+
 function normalizeAppData(data: AppData): AppData {
-  return {
+  const withDefaults = {
     ...initialAppData,
     ...data,
+  };
+  return {
+    ...withDefaults,
+    profile: {
+      ...initialAppData.profile,
+      ...(data.profile ?? {}),
+    },
+    syncMeta: {
+      ...initialAppData.syncMeta,
+      ...(data.syncMeta ?? {}),
+    },
     leagueSettings: {
       ...initialAppData.leagueSettings,
       ...data.leagueSettings,
@@ -40,6 +62,12 @@ function App({ currentUser, onSignOut }: AppProps) {
   const [activeTab, setActiveTab] = useState<AppTab>("dashboard");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [isAccountSettingsOpen, setIsAccountSettingsOpen] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "synced" | "offline">("idle");
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [cloudReady, setCloudReady] = useState(false);
+  const [showMiniTour, setShowMiniTour] = useState(false);
   const [data, setData] = useLocalStorageState<AppData>(
     `golfpro-companion-data-${currentUser.id}`,
     initialAppData,
@@ -49,9 +77,35 @@ function App({ currentUser, onSignOut }: AppProps) {
     "meters",
   );
   const appData = normalizeAppData(data);
+  const appDataRef = useRef(appData);
+  const lastSyncedPayloadRef = useRef<string>("");
+  const isApplyingRemoteRef = useRef(false);
+  const syncTimerRef = useRef<number | null>(null);
 
-  const updateData = (updater: (current: AppData) => AppData) => {
-    setData((current) => updater(normalizeAppData(current)));
+  useEffect(() => {
+    appDataRef.current = appData;
+  }, [appData]);
+
+  const applyDataWithoutTouch = (nextData: AppData) => {
+    isApplyingRemoteRef.current = true;
+    setData(normalizeAppData(nextData));
+    window.setTimeout(() => {
+      isApplyingRemoteRef.current = false;
+    }, 0);
+  };
+
+  const updateData = (updater: (current: AppData) => AppData, touchTimestamp = true) => {
+    setData((current) => {
+      const next = normalizeAppData(updater(normalizeAppData(current)));
+      if (!touchTimestamp) return next;
+      return {
+        ...next,
+        syncMeta: {
+          ...next.syncMeta,
+          lastModifiedAt: new Date().toISOString(),
+        },
+      };
+    });
   };
 
   const addRound = (round: RoundEntry) => {
@@ -127,7 +181,12 @@ function App({ currentUser, onSignOut }: AppProps) {
   };
 
   const resetAllData = () => {
-    setData(initialAppData);
+    setData({
+      ...initialAppData,
+      syncMeta: {
+        lastModifiedAt: new Date().toISOString(),
+      },
+    });
   };
 
   const requestResetAllData = () => {
@@ -139,6 +198,140 @@ function App({ currentUser, onSignOut }: AppProps) {
     resetAllData();
     setIsResetConfirmOpen(false);
   };
+
+  const syncStatusLabel = useMemo(() => {
+    if (syncStatus === "syncing") return "Syncing cloud data...";
+    if (syncStatus === "offline") return "Cloud sync paused (will retry).";
+    if (syncStatus === "synced") {
+      const label = lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString() : "just now";
+      return `Synced ${label}`;
+    }
+    return "Cloud sync idle";
+  }, [lastSyncedAt, syncStatus]);
+
+  useEffect(() => {
+    let active = true;
+
+    const hydrate = async () => {
+      setCloudReady(false);
+      setSyncStatus("syncing");
+      setSyncError(null);
+      try {
+        const [remoteSnapshot, profile] = await Promise.all([
+          loadPlayerAppData(currentUser.id),
+          getPlayerProfile(currentUser.id),
+        ]);
+        if (!active) return;
+
+        const localData = appDataRef.current;
+        const remoteData = remoteSnapshot.data ? normalizeAppData(remoteSnapshot.data) : null;
+        const localMs = parseIsoMs(localData.syncMeta.lastModifiedAt);
+        const remoteMs = Math.max(
+          parseIsoMs(remoteData?.syncMeta.lastModifiedAt),
+          parseIsoMs(remoteSnapshot.updatedAt),
+        );
+
+        if (remoteData && remoteMs >= localMs) {
+          applyDataWithoutTouch(remoteData);
+          const payload = JSON.stringify(remoteData);
+          lastSyncedPayloadRef.current = payload;
+          setLastSyncedAt(remoteSnapshot.updatedAt);
+        } else if (!remoteData) {
+          setLastSyncedAt(null);
+        }
+
+        if (profile) {
+          updateData(
+            (current) => ({
+              ...current,
+              profile: {
+                ...current.profile,
+                publicShareEnabled: profile.publicProfile,
+                shareCode: profile.shareCode ?? "",
+              },
+            }),
+            false,
+          );
+        }
+
+        setCloudReady(true);
+        setSyncStatus("synced");
+      } catch (error) {
+        if (!active) return;
+        setCloudReady(true);
+        setSyncStatus("offline");
+        setSyncError(error instanceof Error ? error.message : "Unable to load cloud data.");
+      }
+    };
+
+    void hydrate();
+
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser.id]);
+
+  useEffect(() => {
+    if (!cloudReady || isApplyingRemoteRef.current) return;
+
+    if (syncTimerRef.current) {
+      window.clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = null;
+    }
+
+    const payload = JSON.stringify(appData);
+    if (payload === lastSyncedPayloadRef.current) return;
+
+    syncTimerRef.current = window.setTimeout(() => {
+      const run = async () => {
+        setSyncStatus("syncing");
+        setSyncError(null);
+        try {
+          const updatedAt = await savePlayerAppData(currentUser.id, appDataRef.current);
+          lastSyncedPayloadRef.current = JSON.stringify(appDataRef.current);
+          setLastSyncedAt(updatedAt);
+          setSyncStatus("synced");
+        } catch (error) {
+          setSyncStatus("offline");
+          setSyncError(error instanceof Error ? error.message : "Unable to sync to cloud.");
+        }
+      };
+      void run();
+    }, 700);
+
+    return () => {
+      if (syncTimerRef.current) {
+        window.clearTimeout(syncTimerRef.current);
+      }
+    };
+  }, [appData, cloudReady, currentUser.id]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToPlayerAppData(currentUser.id, (snapshot) => {
+      if (!snapshot.data) return;
+      const next = normalizeAppData(snapshot.data);
+      const nextPayload = JSON.stringify(next);
+      const currentPayload = JSON.stringify(appDataRef.current);
+      if (nextPayload === currentPayload) {
+        lastSyncedPayloadRef.current = currentPayload;
+        setLastSyncedAt(snapshot.updatedAt);
+        setSyncStatus("synced");
+        return;
+      }
+      applyDataWithoutTouch(next);
+      lastSyncedPayloadRef.current = nextPayload;
+      setLastSyncedAt(snapshot.updatedAt);
+      setSyncStatus("synced");
+    });
+    return unsubscribe;
+  }, [currentUser.id]);
+
+  useEffect(() => {
+    if (!appData.profile.onboardingCompleted) return;
+    if (appData.profile.miniTourCompleted) return;
+    setShowMiniTour(true);
+  }, [appData.profile.miniTourCompleted, appData.profile.onboardingCompleted]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -156,6 +349,8 @@ function App({ currentUser, onSignOut }: AppProps) {
               <p className="mt-1 text-xs text-slate-500">
                 Signed in as <span className="font-semibold">{currentUser.email ?? "Player"}</span>
               </p>
+              <p className="mt-1 text-xs text-slate-500">{syncStatusLabel}</p>
+              {syncError && <p className="mt-1 text-xs text-rose-600">{syncError}</p>}
             </div>
             <div className="flex items-center gap-2 self-start">
               <label className="text-xs font-semibold text-slate-600">
@@ -178,7 +373,17 @@ function App({ currentUser, onSignOut }: AppProps) {
                   Menu
                 </button>
                 {isMenuOpen && (
-                  <div className="absolute right-0 z-50 mt-2 w-40 rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                  <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        setIsAccountSettingsOpen(true);
+                      }}
+                      className="block w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                    >
+                      Account settings
+                    </button>
                     <button
                       type="button"
                       onClick={requestResetAllData}
@@ -218,7 +423,7 @@ function App({ currentUser, onSignOut }: AppProps) {
               {activeTab === "rounds" && (
                 <RoundEntryForm
                   distanceUnit={distanceUnit}
-                  draftStorageKey="golfpro-companion-round-draft"
+                  draftStorageKey={`golfpro-companion-round-draft-${currentUser.id}`}
                   rounds={appData.rounds}
                   onAddRound={addRound}
                   onDeleteRound={deleteRound}
@@ -288,6 +493,61 @@ function App({ currentUser, onSignOut }: AppProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {!appData.profile.onboardingCompleted && (
+        <OnboardingWizard
+          profile={appData.profile}
+          onComplete={(nextProfile, nextBag) => {
+            updateData(
+              (current) => ({
+                ...current,
+                profile: nextProfile,
+                clubBag: nextBag,
+              }),
+              true,
+            );
+            setActiveTab("rounds");
+          }}
+        />
+      )}
+
+      {showMiniTour && (
+        <MiniTourModal
+          onDone={() => {
+            setShowMiniTour(false);
+            updateData(
+              (current) => ({
+                ...current,
+                profile: {
+                  ...current.profile,
+                  miniTourCompleted: true,
+                },
+              }),
+              true,
+            );
+          }}
+        />
+      )}
+
+      {isAccountSettingsOpen && (
+        <AccountSettingsModal
+          user={currentUser}
+          profile={appData.profile}
+          onClose={() => setIsAccountSettingsOpen(false)}
+          onUpdateProfile={(partialProfile) => {
+            updateData(
+              (current) => ({
+                ...current,
+                profile: {
+                  ...current.profile,
+                  ...partialProfile,
+                },
+              }),
+              true,
+            );
+          }}
+        />
       )}
     </div>
   );

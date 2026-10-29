@@ -140,6 +140,17 @@ export function RegisterPage() {
             Login
           </Link>
         </p>
+        <p className="mt-2 text-xs text-slate-500">
+          By registering, you agree to our{" "}
+          <Link to="/terms" className="font-semibold text-emerald-700">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link to="/privacy" className="font-semibold text-emerald-700">
+            Privacy Policy
+          </Link>
+          .
+        </p>
       </section>
     </main>
   );

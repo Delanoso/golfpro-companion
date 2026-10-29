@@ -7,6 +7,8 @@ export type SharedLeague = {
   name: string;
   ownerId: string;
   inviteCode: string;
+  isArchived: boolean;
+  isLocked: boolean;
   createdAt: string;
 };
 
@@ -15,6 +17,7 @@ export type SharedLeagueMember = {
   leagueId: string;
   userId: string;
   displayName: string;
+  role: "member" | "admin";
   joinedAt: string;
 };
 
@@ -31,6 +34,7 @@ export type SharedLeagueRound = {
   onePutts: number;
   threePutts: number;
   holes: 9 | 18;
+  sourceRoundId?: string;
   createdAt: string;
 };
 
@@ -60,7 +64,7 @@ export async function createSharedLeague(name: string, user: User, displayName: 
         owner_id: user.id,
         invite_code: inviteCode,
       })
-      .select("id, name, owner_id, invite_code, created_at")
+      .select("id, name, owner_id, invite_code, is_archived, is_locked, created_at")
       .single();
 
     if (error) {
@@ -77,6 +81,8 @@ export async function createSharedLeague(name: string, user: User, displayName: 
       name: data.name,
       ownerId: data.owner_id,
       inviteCode: data.invite_code,
+      isArchived: data.is_archived,
+      isLocked: data.is_locked,
       createdAt: data.created_at,
     };
   }
@@ -111,7 +117,7 @@ export async function joinSharedLeagueByCode(
   }
   const { data, error } = await client
     .from("leagues")
-    .select("id, name, owner_id, invite_code, created_at")
+    .select("id, name, owner_id, invite_code, is_archived, is_locked, created_at")
     .eq("invite_code", normalized)
     .single();
   if (error || !data) {
@@ -125,6 +131,8 @@ export async function joinSharedLeagueByCode(
     name: data.name,
     ownerId: data.owner_id,
     inviteCode: data.invite_code,
+    isArchived: data.is_archived,
+    isLocked: data.is_locked,
     createdAt: data.created_at,
   };
 }
@@ -133,7 +141,7 @@ export async function getMySharedLeagues(userId: string): Promise<SharedLeague[]
   const client = requiredClient();
   const { data, error } = await client
     .from("league_members")
-    .select("leagues(id, name, owner_id, invite_code, created_at)")
+    .select("leagues(id, name, owner_id, invite_code, is_archived, is_locked, created_at)")
     .eq("user_id", userId);
   if (error) {
     throw new Error(error.message);
@@ -149,6 +157,8 @@ export async function getMySharedLeagues(userId: string): Promise<SharedLeague[]
                 name: unknown;
                 owner_id: unknown;
                 invite_code: unknown;
+                is_archived: unknown;
+                is_locked: unknown;
                 created_at: unknown;
               }
             | Array<{
@@ -156,6 +166,8 @@ export async function getMySharedLeagues(userId: string): Promise<SharedLeague[]
                 name: unknown;
                 owner_id: unknown;
                 invite_code: unknown;
+                is_archived: unknown;
+                is_locked: unknown;
                 created_at: unknown;
               }>
             | null;
@@ -168,6 +180,8 @@ export async function getMySharedLeagues(userId: string): Promise<SharedLeague[]
         name: String(league.name),
         ownerId: String(league.owner_id),
         inviteCode: String(league.invite_code),
+        isArchived: Boolean(league.is_archived),
+        isLocked: Boolean(league.is_locked),
         createdAt: String(league.created_at),
       } satisfies SharedLeague;
     })
@@ -180,7 +194,7 @@ export async function getSharedLeagueMembers(leagueId: string): Promise<SharedLe
   const client = requiredClient();
   const { data, error } = await client
     .from("league_members")
-    .select("id, league_id, user_id, display_name, joined_at")
+    .select("id, league_id, user_id, display_name, role, joined_at")
     .eq("league_id", leagueId)
     .order("joined_at", { ascending: true });
   if (error) {
@@ -191,6 +205,7 @@ export async function getSharedLeagueMembers(leagueId: string): Promise<SharedLe
     leagueId: row.league_id,
     userId: row.user_id,
     displayName: row.display_name,
+    role: row.role,
     joinedAt: row.joined_at,
   }));
 }
@@ -220,6 +235,9 @@ export async function linkRoundToLeague(
     notes: round.notes ?? null,
   });
   if (error) {
+    if (error.code === "23505") {
+      throw new Error("That scorecard is already linked to this league.");
+    }
     throw new Error(error.message);
   }
 }
@@ -229,7 +247,7 @@ export async function getSharedLeagueRounds(leagueId: string): Promise<SharedLea
   const { data, error } = await client
     .from("league_rounds")
     .select(
-      "id, league_id, user_id, display_name, round_date, course, par, total_score, putts, one_putts, three_putts, holes, created_at",
+      "id, league_id, user_id, display_name, source_round_id, round_date, course, par, total_score, putts, one_putts, three_putts, holes, created_at",
     )
     .eq("league_id", leagueId)
     .order("round_date", { ascending: false })
@@ -243,6 +261,7 @@ export async function getSharedLeagueRounds(leagueId: string): Promise<SharedLea
     leagueId: row.league_id,
     userId: row.user_id,
     displayName: row.display_name,
+    sourceRoundId: row.source_round_id ?? undefined,
     roundDate: row.round_date,
     course: row.course,
     par: row.par,
@@ -253,4 +272,38 @@ export async function getSharedLeagueRounds(leagueId: string): Promise<SharedLea
     holes: row.holes,
     createdAt: row.created_at,
   }));
+}
+
+export async function setLeagueState(
+  leagueId: string,
+  nextState: { isArchived?: boolean; isLocked?: boolean; name?: string },
+): Promise<void> {
+  const client = requiredClient();
+  const payload: { is_archived?: boolean; is_locked?: boolean; name?: string } = {};
+  if (typeof nextState.isArchived === "boolean") payload.is_archived = nextState.isArchived;
+  if (typeof nextState.isLocked === "boolean") payload.is_locked = nextState.isLocked;
+  if (typeof nextState.name === "string" && nextState.name.trim()) payload.name = nextState.name.trim();
+  const { error } = await client.from("leagues").update(payload).eq("id", leagueId);
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function setMemberRole(
+  membershipId: string,
+  role: SharedLeagueMember["role"],
+): Promise<void> {
+  const client = requiredClient();
+  const { error } = await client.from("league_members").update({ role }).eq("id", membershipId);
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function removeLeagueMember(membershipId: string): Promise<void> {
+  const client = requiredClient();
+  const { error } = await client.from("league_members").delete().eq("id", membershipId);
+  if (error) {
+    throw new Error(error.message);
+  }
 }

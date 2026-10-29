@@ -1,7 +1,14 @@
 export type HoleCount = 9 | 18;
 export type DistanceUnit = "meters" | "yards";
 export type AppSection = "golf-strategy";
-export type BettingGameType = "skins" | "nassau" | "snake" | "match-play";
+export type BettingGameType =
+  | "skins"
+  | "nassau"
+  | "snake"
+  | "match-play"
+  | "best-ball-2v2"
+  | "wolf"
+  | "stableford";
 
 export type WedgeShot = {
   id: string;
@@ -15,6 +22,7 @@ export type HoleScore = {
   par: number;
   strokes: number;
   putts: number;
+  fir?: boolean;
   gir?: boolean;
   wedgeDistanceYards?: number;
   wedgeMiss?: WedgeShot["miss"];
@@ -112,10 +120,31 @@ export type LeagueSettings = {
   participationPoints: number;
 };
 
+export type BettingSettlement = {
+  from: string;
+  to: string;
+  amount: number;
+};
+
+export type PlayerProfile = {
+  onboardingCompleted: boolean;
+  miniTourCompleted: boolean;
+  handicap: number | "";
+  homeCourse: string;
+  preferredTee: string;
+  publicShareEnabled: boolean;
+  shareCode: string;
+};
+
 export type AppData = {
   rounds: RoundEntry[];
   clubShots: ClubShot[];
   clubBag: ClubName[];
+  profile: PlayerProfile;
+  syncMeta: {
+    lastModifiedAt: string;
+    lastSyncedAt?: string;
+  };
   bettingGames: Array<{
     id: string;
     type: BettingGameType;
@@ -126,6 +155,7 @@ export type AppData = {
     stakePerPoint: number;
     summary: string;
     details?: string;
+    settlements?: BettingSettlement[];
   }>;
   leagueRounds: LeagueRound[];
   leagueSettings: LeagueSettings;

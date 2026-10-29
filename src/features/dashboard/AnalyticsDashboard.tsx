@@ -3,10 +3,13 @@ import type { AppData, DistanceUnit } from "../../types/app";
 import {
   getBiggestLeak,
   getClubDistanceStats,
+  getFirSummary,
   getGirSummary,
   getLeagueLeaderboard,
+  getPerformanceTrends,
   getPuttingSummary,
   getScoreSummary,
+  getStrokesGainedLite,
   getWedgeBuckets,
 } from "../../utils/analytics";
 import { formatClubDisplayName } from "../../utils/clubs";
@@ -25,8 +28,16 @@ export function AnalyticsDashboard({ data, distanceUnit }: AnalyticsDashboardPro
   const wedgeBuckets = getWedgeBuckets(data.rounds);
   const clubStats = getClubDistanceStats(data.clubShots);
   const girSummary = getGirSummary(data.rounds);
+  const firSummary = getFirSummary(data.rounds);
+  const trends = getPerformanceTrends(data.rounds);
+  const sgLite = getStrokesGainedLite(data.rounds);
   const leaderboard = getLeagueLeaderboard(data);
   const leak = getBiggestLeak(data.rounds);
+  const trendLabel = (delta: number, lowerIsBetter = false) => {
+    const improved = lowerIsBetter ? delta < 0 : delta > 0;
+    const sign = delta > 0 ? "+" : "";
+    return `${improved ? "Improved" : "Changed"} ${sign}${delta.toFixed(2)}`;
+  };
 
   return (
     <section className="space-y-4">
@@ -45,6 +56,38 @@ export function AnalyticsDashboard({ data, distanceUnit }: AnalyticsDashboardPro
       </div>
 
       <article className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <h3 className="text-base font-semibold text-slate-900">Last 5 vs Previous 5</h3>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <StatCard
+            label="Score vs Par"
+            value={trends.scoreVsPar.current.toFixed(2)}
+            subtext={trends.scoreVsPar.hasPrevious ? trendLabel(trends.scoreVsPar.delta, true) : "Need 10 rounds"}
+            tone={trends.scoreVsPar.delta <= 0 ? "success" : "warning"}
+          />
+          <StatCard
+            label="Putts / Hole"
+            value={trends.puttsPerHole.current.toFixed(2)}
+            subtext={
+              trends.puttsPerHole.hasPrevious ? trendLabel(trends.puttsPerHole.delta, true) : "Need 10 rounds"
+            }
+            tone={trends.puttsPerHole.delta <= 0 ? "success" : "warning"}
+          />
+          <StatCard
+            label="GIR Rate"
+            value={`${trends.girRate.current.toFixed(1)}%`}
+            subtext={trends.girRate.hasPrevious ? trendLabel(trends.girRate.delta) : "Need 10 rounds"}
+            tone={trends.girRate.delta >= 0 ? "success" : "warning"}
+          />
+          <StatCard
+            label="FIR Rate"
+            value={`${trends.firRate.current.toFixed(1)}%`}
+            subtext={trends.firRate.hasPrevious ? trendLabel(trends.firRate.delta) : "Need 10 rounds"}
+            tone={trends.firRate.delta >= 0 ? "success" : "warning"}
+          />
+        </div>
+      </article>
+
+      <article className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <h3 className="text-base font-semibold text-slate-900">GIR (Greens in Regulation)</h3>
         {girSummary.totalHoles === 0 ? (
           <p className="mt-2 text-sm text-slate-600">No hole-by-hole GIR data yet.</p>
@@ -55,6 +98,36 @@ export function AnalyticsDashboard({ data, distanceUnit }: AnalyticsDashboardPro
             <StatCard label="Tracked Holes" value={`${girSummary.totalHoles}`} />
           </div>
         )}
+      </article>
+
+      <article className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <h3 className="text-base font-semibold text-slate-900">FIR (Fairways in Regulation)</h3>
+        {firSummary.totalHoles === 0 ? (
+          <p className="mt-2 text-sm text-slate-600">No hole-by-hole FIR data yet.</p>
+        ) : (
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <StatCard label="FIR %" value={`${firSummary.rate.toFixed(1)}%`} tone="success" />
+            <StatCard label="FIR Holes" value={`${firSummary.firHoles}`} />
+            <StatCard label="Tracked Holes" value={`${firSummary.totalHoles}`} />
+          </div>
+        )}
+      </article>
+
+      <article className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <h3 className="text-base font-semibold text-slate-900">Strokes Gained Lite</h3>
+        <p className="mt-1 text-xs text-slate-600">
+          Lightweight directional model from FIR/GIR/putting trends, not an official SG calculation.
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatCard label="Off the Tee" value={formatSigned(sgLite.offTee)} tone={sgLite.offTee >= 0 ? "success" : "warning"} />
+          <StatCard
+            label="Approach"
+            value={formatSigned(sgLite.approach)}
+            tone={sgLite.approach >= 0 ? "success" : "warning"}
+          />
+          <StatCard label="Putting" value={formatSigned(sgLite.putting)} tone={sgLite.putting >= 0 ? "success" : "warning"} />
+          <StatCard label="Total SG Lite" value={formatSigned(sgLite.total)} tone={sgLite.total >= 0 ? "success" : "warning"} />
+        </div>
       </article>
 
       <article className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">

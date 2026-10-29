@@ -73,6 +73,13 @@ export function LoginPage() {
           </button>
         </form>
 
+        <p className="mt-2 text-sm text-slate-600">
+          Forgot password?{" "}
+          <Link to="/reset-password" className="font-semibold text-emerald-700">
+            Reset it
+          </Link>
+        </p>
+
         <p className="mt-4 text-sm text-slate-600">
           New player?{" "}
           <Link
@@ -81,6 +88,17 @@ export function LoginPage() {
           >
             Create an account
           </Link>
+        </p>
+        <p className="mt-2 text-xs text-slate-500">
+          By continuing, you agree to our{" "}
+          <Link to="/terms" className="font-semibold text-emerald-700">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link to="/privacy" className="font-semibold text-emerald-700">
+            Privacy Policy
+          </Link>
+          .
         </p>
       </section>
     </main>

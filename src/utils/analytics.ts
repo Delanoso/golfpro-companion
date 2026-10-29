@@ -50,6 +50,33 @@ type GirSummary = {
   rate: number;
 };
 
+type FirSummary = {
+  totalHoles: number;
+  firHoles: number;
+  rate: number;
+};
+
+type TrendMetric = {
+  current: number;
+  previous: number;
+  delta: number;
+  hasPrevious: boolean;
+};
+
+type PerformanceTrends = {
+  scoreVsPar: TrendMetric;
+  puttsPerHole: TrendMetric;
+  girRate: TrendMetric;
+  firRate: TrendMetric;
+};
+
+type StrokesGainedLite = {
+  offTee: number;
+  approach: number;
+  putting: number;
+  total: number;
+};
+
 const average = (values: number[]) =>
   values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length;
 
@@ -102,6 +129,99 @@ export function getGirSummary(rounds: RoundEntry[]): GirSummary {
     totalHoles: tracked.length,
     girHoles: girCount,
     rate: tracked.length === 0 ? 0 : (girCount / tracked.length) * 100,
+  };
+}
+
+export function getFirSummary(rounds: RoundEntry[]): FirSummary {
+  const holeScores = rounds.flatMap((round) => round.holeScores ?? []);
+  const tracked = holeScores.filter((hole) => typeof hole.fir === "boolean");
+  const firCount = tracked.filter((hole) => hole.fir).length;
+  return {
+    totalHoles: tracked.length,
+    firHoles: firCount,
+    rate: tracked.length === 0 ? 0 : (firCount / tracked.length) * 100,
+  };
+}
+
+const trendMetric = (currentValues: number[], previousValues: number[]): TrendMetric => {
+  const current = average(currentValues);
+  const previous = average(previousValues);
+  return {
+    current,
+    previous,
+    delta: current - previous,
+    hasPrevious: previousValues.length > 0,
+  };
+};
+
+export function getPerformanceTrends(rounds: RoundEntry[]): PerformanceTrends {
+  const ordered = rounds.slice().sort((a, b) => a.date.localeCompare(b.date));
+  const current = ordered.slice(-5);
+  const previous = ordered.slice(Math.max(0, ordered.length - 10), Math.max(0, ordered.length - 5));
+
+  const rate = (values: boolean[]) =>
+    values.length === 0 ? 0 : (values.filter((value) => value).length / values.length) * 100;
+
+  return {
+    scoreVsPar: trendMetric(
+      current.map((round) => round.totalScore - round.par),
+      previous.map((round) => round.totalScore - round.par),
+    ),
+    puttsPerHole: trendMetric(
+      current.map((round) => round.putts / round.holes),
+      previous.map((round) => round.putts / round.holes),
+    ),
+    girRate: trendMetric(
+      [
+        rate(
+          current.flatMap((round) =>
+            round.holeScores.filter((hole) => typeof hole.gir === "boolean").map((hole) => hole.gir as boolean),
+          ),
+        ),
+      ],
+      [
+        rate(
+          previous.flatMap((round) =>
+            round.holeScores.filter((hole) => typeof hole.gir === "boolean").map((hole) => hole.gir as boolean),
+          ),
+        ),
+      ],
+    ),
+    firRate: trendMetric(
+      [
+        rate(
+          current.flatMap((round) =>
+            round.holeScores.filter((hole) => typeof hole.fir === "boolean").map((hole) => hole.fir as boolean),
+          ),
+        ),
+      ],
+      [
+        rate(
+          previous.flatMap((round) =>
+            round.holeScores.filter((hole) => typeof hole.fir === "boolean").map((hole) => hole.fir as boolean),
+          ),
+        ),
+      ],
+    ),
+  };
+}
+
+export function getStrokesGainedLite(rounds: RoundEntry[]): StrokesGainedLite {
+  const putting = getPuttingSummary(rounds);
+  const gir = getGirSummary(rounds);
+  const fir = getFirSummary(rounds);
+
+  // Lightweight benchmark model for trend direction, not PGA-validated SG.
+  const offTee = (fir.rate - 50) / 20;
+  const approach = (gir.rate - 35) / 15;
+  const puttingScore = putting.totalHoles === 0 ? 0 : (1.9 - putting.puttsPerHole) * 5;
+
+  const total = offTee + approach + puttingScore;
+  return {
+    offTee,
+    approach,
+    putting: puttingScore,
+    total,
   };
 }
 
