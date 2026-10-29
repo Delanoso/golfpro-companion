@@ -141,7 +141,27 @@ export async function getMySharedLeagues(userId: string): Promise<SharedLeague[]
 
   const mapped = (data ?? [])
     .map((row) => {
-      const league = (row as { leagues: Record<string, unknown> | null }).leagues;
+      const related = (
+        row as {
+          leagues:
+            | {
+                id: unknown;
+                name: unknown;
+                owner_id: unknown;
+                invite_code: unknown;
+                created_at: unknown;
+              }
+            | Array<{
+                id: unknown;
+                name: unknown;
+                owner_id: unknown;
+                invite_code: unknown;
+                created_at: unknown;
+              }>
+            | null;
+        }
+      ).leagues;
+      const league = Array.isArray(related) ? related[0] : related;
       if (!league) return null;
       return {
         id: String(league.id),
