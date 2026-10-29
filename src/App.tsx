@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { AppSectionBar } from "./components/AppSectionBar";
 import { AppTabBar, type AppTab } from "./components/AppTabBar";
 import { clubOptions, initialAppData } from "./data/defaultData";
 import { ClubDistanceTracker } from "./features/clubs/ClubDistanceTracker";
@@ -16,7 +15,6 @@ import { useLocalStorageState } from "./hooks/useLocalStorageState";
 import { loadPlayerAppData, savePlayerAppData, subscribeToPlayerAppData } from "./services/appDataSyncService";
 import { getPlayerProfile } from "./services/playerProfileService";
 import type {
-  AppSection,
   AppData,
   ClubShot,
   DistanceUnit,
@@ -58,7 +56,6 @@ function normalizeAppData(data: AppData): AppData {
 }
 
 function App({ currentUser, onSignOut }: AppProps) {
-  const [activeSection, setActiveSection] = useState<AppSection>("golf-strategy");
   const [activeTab, setActiveTab] = useState<AppTab>("dashboard");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
@@ -410,63 +407,58 @@ function App({ currentUser, onSignOut }: AppProps) {
           </div>
         </header>
 
-        <AppSectionBar activeSection={activeSection} onChange={setActiveSection} />
-        {activeSection === "golf-strategy" && (
-          <AppTabBar activeTab={activeTab} onChange={setActiveTab} title="Golf Strategy" />
-        )}
+        <AppTabBar activeTab={activeTab} onChange={setActiveTab} title="Golf Strategy" />
 
         <section className="mt-4">
-          {activeSection === "golf-strategy" && (
-            <>
-              {activeTab === "dashboard" && (
-                <AnalyticsDashboard data={appData} distanceUnit={distanceUnit} />
-              )}
+          <>
+            {activeTab === "dashboard" && (
+              <AnalyticsDashboard data={appData} distanceUnit={distanceUnit} />
+            )}
 
-              {activeTab === "rounds" && (
-                <RoundEntryForm
-                  distanceUnit={distanceUnit}
-                  draftStorageKey={`golfpro-companion-round-draft-${currentUser.id}`}
-                  rounds={appData.rounds}
-                  onAddRound={addRound}
-                  onDeleteRound={deleteRound}
-                />
-              )}
+            {activeTab === "rounds" && (
+              <RoundEntryForm
+                distanceUnit={distanceUnit}
+                draftStorageKey={`golfpro-companion-round-draft-${currentUser.id}`}
+                rounds={appData.rounds}
+                onAddRound={addRound}
+                onDeleteRound={deleteRound}
+              />
+            )}
 
-              {activeTab === "clubs" && (
-                <ClubDistanceTracker
-                  distanceUnit={distanceUnit}
-                  clubShots={appData.clubShots}
-                  selectedClubs={appData.clubBag}
-                  onAddShot={addClubShot}
-                  onChangeSelectedClubs={updateClubBag}
-                  onDeleteShot={deleteClubShot}
-                />
-              )}
+            {activeTab === "clubs" && (
+              <ClubDistanceTracker
+                distanceUnit={distanceUnit}
+                clubShots={appData.clubShots}
+                selectedClubs={appData.clubBag}
+                onAddShot={addClubShot}
+                onChangeSelectedClubs={updateClubBag}
+                onDeleteShot={deleteClubShot}
+              />
+            )}
 
-              {activeTab === "strategy" && (
-                <SmartCaddy distanceUnit={distanceUnit} clubShots={appData.clubShots} />
-              )}
+            {activeTab === "strategy" && (
+              <SmartCaddy distanceUnit={distanceUnit} clubShots={appData.clubShots} />
+            )}
 
-              {activeTab === "games" && (
-                <BettingGamesManager
-                  games={appData.bettingGames}
-                  onAddGame={addBettingGame}
-                  onDeleteGame={deleteBettingGame}
-                />
-              )}
+            {activeTab === "games" && (
+              <BettingGamesManager
+                games={appData.bettingGames}
+                onAddGame={addBettingGame}
+                onDeleteGame={deleteBettingGame}
+              />
+            )}
 
-              {activeTab === "league" && (
-                <LeagueManager
-                  currentUser={currentUser}
-                  data={appData}
-                  rounds={appData.rounds}
-                  onUpdateSettings={updateLeagueSettings}
-                  onAddRound={addLeagueRound}
-                  onDeleteRound={deleteLeagueRound}
-                />
-              )}
-            </>
-          )}
+            {activeTab === "league" && (
+              <LeagueManager
+                currentUser={currentUser}
+                data={appData}
+                rounds={appData.rounds}
+                onUpdateSettings={updateLeagueSettings}
+                onAddRound={addLeagueRound}
+                onDeleteRound={deleteLeagueRound}
+              />
+            )}
+          </>
         </section>
       </main>
 
