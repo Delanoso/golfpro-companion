@@ -62,11 +62,24 @@ export function AccountSettingsModal({
     setStatus(null);
     try {
       if (!supabase) throw new Error("Supabase is not configured.");
-      const { error: authError } = await supabase.auth.updateUser({ email: email.trim() });
+      const normalizedEmail = email.trim().toLowerCase();
+      if (!normalizedEmail) {
+        throw new Error("Email is required.");
+      }
+      if (normalizedEmail === (user.email ?? "").toLowerCase()) {
+        setStatus("That email is already your current email.");
+        return;
+      }
+      const { error: authError } = await supabase.auth.updateUser({ email: normalizedEmail });
       if (authError) throw new Error(authError.message);
       setStatus("Email update requested. Check your inbox to confirm the new address.");
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Unable to update email.");
+      const message = saveError instanceof Error ? saveError.message : "Unable to update email.";
+      if (message.toLowerCase().includes("already registered")) {
+        setError("This email is already in use by another account.");
+      } else {
+        setError(message);
+      }
     } finally {
       setBusy(false);
     }

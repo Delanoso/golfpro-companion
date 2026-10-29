@@ -16,6 +16,7 @@ import { ensurePlayerProfile } from "./services/playerProfileService";
 export function AppRouter() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supabase) {
@@ -24,21 +25,43 @@ export function AppRouter() {
     }
 
     let active = true;
-    supabase.auth.getSession().then(({ data }) => {
+    const loadTimeout = window.setTimeout(() => {
       if (!active) return;
-      setSession(data.session);
       setLoading(false);
-    });
+      setAuthError("Authentication took too long. You can still try logging in.");
+    }, 8000);
+
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) {
+          setAuthError(error.message);
+        } else {
+          setSession(data.session);
+        }
+      })
+      .catch((error) => {
+        if (!active) return;
+        setAuthError(error instanceof Error ? error.message : "Unable to load authentication.");
+      })
+      .finally(() => {
+        if (!active) return;
+        window.clearTimeout(loadTimeout);
+        setLoading(false);
+      });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
       setLoading(false);
+      setAuthError(null);
     });
 
     return () => {
       active = false;
+      window.clearTimeout(loadTimeout);
       subscription.unsubscribe();
     };
   }, []);
@@ -64,29 +87,36 @@ export function AppRouter() {
   };
 
   return (
-    <Routes>
-      <Route path="/login" element={session ? <Navigate to="/app" replace /> : <LoginPage />} />
-      <Route path="/register" element={session ? <Navigate to="/app" replace /> : <RegisterPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/terms" element={<TermsPage />} />
-      <Route path="/privacy" element={<PrivacyPage />} />
-      <Route path="/share/:shareCode" element={<PublicProfilePage />} />
-      <Route
-        path="/join/:inviteCode"
-        element={
-          session?.user ? (
-            <JoinLeaguePage currentUser={session.user} />
-          ) : (
-            <Navigate to={`/login?next=${encodeURIComponent(window.location.pathname)}`} replace />
-          )
-        }
-      />
-      <Route
-        path="/app"
-        element={session?.user ? <App currentUser={session.user} onSignOut={signOut} /> : <Navigate to="/login" replace />}
-      />
-      <Route path="/" element={<Navigate to={session?.user ? "/app" : "/login"} replace />} />
-      <Route path="*" element={<Navigate to={session?.user ? "/app" : "/login"} replace />} />
-    </Routes>
+    <>
+      {authError && (
+        <div className="bg-amber-50 px-4 py-2 text-xs text-amber-800 ring-1 ring-amber-200">
+          {authError}
+        </div>
+      )}
+      <Routes>
+        <Route path="/login" element={session ? <Navigate to="/app" replace /> : <LoginPage />} />
+        <Route path="/register" element={session ? <Navigate to="/app" replace /> : <RegisterPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/share/:shareCode" element={<PublicProfilePage />} />
+        <Route
+          path="/join/:inviteCode"
+          element={
+            session?.user ? (
+              <JoinLeaguePage currentUser={session.user} />
+            ) : (
+              <Navigate to={`/login?next=${encodeURIComponent(window.location.pathname)}`} replace />
+            )
+          }
+        />
+        <Route
+          path="/app"
+          element={session?.user ? <App currentUser={session.user} onSignOut={signOut} /> : <Navigate to="/login" replace />}
+        />
+        <Route path="/" element={<Navigate to={session?.user ? "/app" : "/login"} replace />} />
+        <Route path="*" element={<Navigate to={session?.user ? "/app" : "/login"} replace />} />
+      </Routes>
+    </>
   );
 }

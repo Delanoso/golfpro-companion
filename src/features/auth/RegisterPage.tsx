@@ -15,6 +15,14 @@ export function RegisterPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const nextPath = new URLSearchParams(location.search).get("next") || "/app";
 
+  const normalizeRegisterError = (message: string) => {
+    const lower = message.toLowerCase();
+    if (lower.includes("already registered") || lower.includes("already been registered")) {
+      return "This email is already registered. Please login or reset your password.";
+    }
+    return message;
+  };
+
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!supabase) return;
@@ -40,22 +48,14 @@ export function RegisterPage() {
 
     if (signUpError) {
       setLoading(false);
-      setError(signUpError.message);
+      setError(normalizeRegisterError(signUpError.message));
       return;
     }
 
     if (data.user && data.session) {
-      try {
-        await ensurePlayerProfile(data.user);
-      } catch (profileError) {
-        setLoading(false);
-        setError(
-          profileError instanceof Error
-            ? profileError.message
-            : "Unable to create player profile.",
-        );
-        return;
-      }
+      await ensurePlayerProfile(data.user).catch(() => {
+        // Non-blocking: auth succeeded, profile retry happens when app loads.
+      });
       setLoading(false);
       navigate(nextPath, { replace: true });
       return;

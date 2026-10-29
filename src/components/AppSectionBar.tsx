@@ -13,8 +13,8 @@ export function AppSectionBar({ activeSection, onChange }: AppSectionBarProps) {
         onClick={() => onChange("golf-strategy")}
         className={`rounded-full px-4 py-2 text-sm font-semibold ${
           activeSection === "golf-strategy"
-            ? "bg-emerald-700 text-white"
-            : "bg-slate-100 text-slate-700"
+            ? "bg-gradient-to-r from-emerald-700 to-teal-700 text-white shadow-sm"
+            : "bg-white/90 text-slate-700 ring-1 ring-slate-200"
         }`}
       >
         Golf Strategy

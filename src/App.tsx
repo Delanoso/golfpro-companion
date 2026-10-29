@@ -334,13 +334,14 @@ function App({ currentUser, onSignOut }: AppProps) {
   }, [appData.profile.miniTourCompleted, appData.profile.onboardingCompleted]);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen">
       <main className="mx-auto w-full max-w-4xl px-4 pb-8">
         <header className="relative z-30 pt-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
-            GolfPro Companion · Rebuilt
-          </p>
-          <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="golf-header-panel">
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+              GolfPro Companion · Rebuilt
+            </p>
+            <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-2xl font-bold text-slate-900">Personal Stats + Strategy Suite</h1>
               <p className="text-sm text-slate-600">
@@ -368,12 +369,12 @@ function App({ currentUser, onSignOut }: AppProps) {
                 <button
                   type="button"
                   onClick={() => setIsMenuOpen((current) => !current)}
-                  className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
+                  className="rounded-lg bg-slate-900/90 px-3 py-2 text-xs font-semibold text-white shadow-sm"
                 >
                   Menu
                 </button>
                 {isMenuOpen && (
-                  <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                  <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white/95 p-1 shadow-lg backdrop-blur">
                     <button
                       type="button"
                       onClick={() => {
@@ -405,6 +406,7 @@ function App({ currentUser, onSignOut }: AppProps) {
                 )}
               </div>
             </div>
+          </div>
           </div>
         </header>
 
